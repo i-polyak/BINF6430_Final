@@ -1,1 +1,32 @@
-.idea
+# Editor / OS clutter
+.idea/
+.vscode/
+.DS_Store
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# Raw and reference data (huge; re-downloadable)
+*.sra
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fa
+*.fa.gz
+*.fasta
+*.gtf
+*.gtf.gz
+
+# kallisto index (large binary)
+*.idx
+
+# Keep the data folder, but ignore everything in it except its README
+data/*
+!data/README.md
+
+# SLURM log files
+slurm-*.out
+slurm-*.err
