@@ -1,0 +1,7 @@
+name: fp-download
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - sra-tools=3.2.1
+  - pigz
