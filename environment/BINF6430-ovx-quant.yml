@@ -1,0 +1,32 @@
+name: BINF6430-ovx-quant
+channels:
+  - bioconda
+  - conda-forge
+  - defaults
+dependencies:
+  - _openmp_mutex=4.5
+  - c-ares=1.34.8
+  - ca-certificates=2026.7.22
+  - hdf5=1.12.1
+  - kallisto=0.48.0
+  - keyutils=1.6.3
+  - krb5=1.21.3
+  - libcurl=8.8.0
+  - libedit=3.1.20260512
+  - libev=4.33
+  - libgcc=16.2.0
+  - libgcc-ng=16.2.0
+  - libgfortran=16.2.0
+  - libgfortran-ng=16.2.0
+  - libgfortran5=16.2.0
+  - libgomp=16.2.0
+  - libnghttp2=1.58.0
+  - libssh2=1.11.0
+  - libstdcxx=16.2.0
+  - libstdcxx-ng=16.2.0
+  - libzlib=1.2.13
+  - ncurses=6.6
+  - openssl=3.6.5
+  - zlib=1.2.13
+  - zstd=1.5.6
+prefix: /home/lashley.an/.conda/envs/BINF6430-ovx-quant
