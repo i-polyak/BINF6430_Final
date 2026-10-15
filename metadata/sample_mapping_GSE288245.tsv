@@ -1,0 +1,37 @@
+SRR	GSM	GEO_title	library_name	tissue	GEO_group	GEO_batch	animal	authors_group	authors_batch	status
+SRR32154009	GSM8761917	POA_sham_replicate3	L534_10_S10	preoptic area	intact	batch 2				GEO_only
+SRR32154000	GSM8761926	PH_sham_replicate3	L534_1_S1	posterior hypothalamus	intact	batch 2				GEO_only
+SRR32153997	GSM8761929	PH_14dOVX_replicate5	L534_5_S5	posterior hypothalamus	14 days post-OVX	batch 2				GEO_only
+			L16_5443_S1				2763	PH_intact	A	analysis_only
+			L16_5452_S10				2763	POA_intact	A	analysis_only
+			L534_3_S3				2776	PH_intact	B	analysis_only
+SRR32154025	GSM8761901	PH_sham_replicate1	L16_5444_S2	posterior hypothalamus	intact	batch 1	2764	PH_intact	A	in_GEO_and_analysis
+SRR32154024	GSM8761902	PH_sham_replicate2	L16_5445_S3	posterior hypothalamus	intact	batch 1	2766	PH_intact	A	in_GEO_and_analysis
+SRR32154023	GSM8761903	PH_14dOVX_replicate1	L16_5446_S4	posterior hypothalamus	14 days post-OVX	batch 1	9335	PH_14dOVX	A	in_GEO_and_analysis
+SRR32154022	GSM8761904	PH_14dOVX_replicate2	L16_5447_S5	posterior hypothalamus	14 days post-OVX	batch 1	9339	PH_14dOVX	A	in_GEO_and_analysis
+SRR32154021	GSM8761905	PH_14dOVX_replicate3	L16_5448_S6	posterior hypothalamus	14 days post-OVX	batch 1	9345	PH_14dOVX	A	in_GEO_and_analysis
+SRR32154020	GSM8761906	PH_4mOVX_replicate1	L16_5449_S7	posterior hypothalamus	4 months post-OVX	batch 1	6	PH_4mOVX	A	in_GEO_and_analysis
+SRR32154019	GSM8761907	PH_4mOVX_replicate2	L16_5450_S8	posterior hypothalamus	4 months post-OVX	batch 1	14	PH_4mOVX	A	in_GEO_and_analysis
+SRR32154018	GSM8761908	PH_4mOVX_replicate3	L16_5451_S9	posterior hypothalamus	4 months post-OVX	batch 1	16	PH_4mOVX	A	in_GEO_and_analysis
+SRR32154017	GSM8761909	POA_sham_replicate1	L16_5453_S11	preoptic area	intact	batch 1	2764	POA_intact	A	in_GEO_and_analysis
+SRR32154016	GSM8761910	POA_sham_replicate2	L16_5454_S12	preoptic area	intact	batch 1	2766	POA_intact	A	in_GEO_and_analysis
+SRR32154015	GSM8761911	POA_14dOVX_replicate1	L16_5455_S13	preoptic area	14 days post-OVX	batch 1	9335	POA_14dOVX	A	in_GEO_and_analysis
+SRR32154014	GSM8761912	POA_14dOVX_replicate2	L16_5456_S14	preoptic area	14 days post-OVX	batch 1	9339	POA_14dOVX	A	in_GEO_and_analysis
+SRR32154013	GSM8761913	POA_14dOVX_replicate3	L16_5457_S15	preoptic area	14	batch 1	9345	POA_14dOVX	A	in_GEO_and_analysis
+SRR32154012	GSM8761914	POA_4mOVX_replicate1	L16_5458_S16	preoptic area	4 months post-OVX	batch 1	6	POA_4mOVX	A	in_GEO_and_analysis
+SRR32154011	GSM8761915	POA_4mOVX_replicate2	L16_5459_S17	preoptic area	4 months post-OVX	batch 1	14	POA_4mOVX	A	in_GEO_and_analysis
+SRR32154010	GSM8761916	POA_4mOVX_replicate3	L16_5460_S18	preoptic area	4 months post-OVX	batch 1	16	POA_4mOVX	A	in_GEO_and_analysis
+SRR32154008	GSM8761918	POA_sham_replicate4	L534_11_S11	preoptic area	intact	batch 2	2768	POA_intact	B	in_GEO_and_analysis
+SRR32154007	GSM8761919	POA_sham_replicate5	L534_12_S12	preoptic area	intact	batch 2	2776	POA_intact	B	in_GEO_and_analysis
+SRR32154006	GSM8761920	POA_14dOVX_replicate4	L534_13_S13	preoptic area	14 days post-OVX	batch 2	9346	POA_14dOVX	B	in_GEO_and_analysis
+SRR32154005	GSM8761921	POA_14dOVX_replicate5	L534_14_S14	preoptic area	14 days post-OVX	batch 2	9340	POA_14dOVX	B	in_GEO_and_analysis
+SRR32154004	GSM8761922	POA_14dOVX_replicate6	L534_15_S15	preoptic area	14 days post-OVX	batch 2	9415	POA_14dOVX	B	in_GEO_and_analysis
+SRR32154003	GSM8761923	POA_4mOVX_replicate4	L534_16_S16	preoptic area	4 months post-OVX	batch 2	7	POA_4mOVX	B	in_GEO_and_analysis
+SRR32154002	GSM8761924	POA_4mOVX_replicate5	L534_17_S17	preoptic area	4 months post-OVX	batch 2	19	POA_4mOVX	B	in_GEO_and_analysis
+SRR32154001	GSM8761925	POA_4mOVX_replicate6	L534_18_S18	preoptic area	4 months post-OVX	batch 2	21	POA_4mOVX	B	in_GEO_and_analysis
+SRR32153999	GSM8761927	PH_sham_replicate4	L534_2_S2	posterior hypothalamus	intact	batch 2	2768	PH_intact	B	in_GEO_and_analysis
+SRR32153998	GSM8761928	PH_14dOVX_replicate4	L534_4_S4	posterior hypothalamus	14 days post-OVX	batch 2	9346	PH_14dOVX	B	in_GEO_and_analysis
+SRR32153996	GSM8761930	PH_14dOVX_replicate6	L534_6_S6	posterior hypothalamus	14 days post-OVX	batch 2	9415	PH_14dOVX	B	in_GEO_and_analysis
+SRR32153995	GSM8761931	PH_4mOVX_replicate4	L534_7_S7	posterior hypothalamus	4 months post-OVX	batch 2	7	PH_4mOVX	B	in_GEO_and_analysis
+SRR32153994	GSM8761932	PH_4mOVX_replicate5	L534_8_S8	posterior hypothalamus	4 months post-OVX	batch 2	19	PH_4mOVX	B	in_GEO_and_analysis
+SRR32153993	GSM8761933	PH_4mOVX_replicate6	L534_9_S9	posterior hypothalamus	4 months post-OVX	batch 2	21	PH_4mOVX	B	in_GEO_and_analysis
