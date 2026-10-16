@@ -1,0 +1,7 @@
+name: fp-quant
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - kallisto=0.48.0
+
