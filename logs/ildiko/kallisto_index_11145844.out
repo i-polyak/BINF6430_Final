@@ -1,0 +1,15 @@
+Started on c0584 at Fri Oct 16 17:29:39 EDT 2026
+kallisto, version 0.48.0
+ded8aca84450255b9b08b9aec31727b7  /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.transcripts.fa.gz
+
+[build] loading fasta file /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.transcripts.fa.gz
+[build] k-mer length: 31
+[build] warning: clipped off poly-A tail (longer than 10)
+        from 876 target sequences
+[build] counting k-mers ... done.
+[build] building target de Bruijn graph ...  done 
+[build] creating equivalence classes ...  done
+[build] target de Bruijn graph has 897905 contigs and contains 123081114 k-mers 
+
+-rw-r--r-- 1 polyak.i users 2.6G Oct 16 17:39 /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx
+Finished at Fri Oct 16 17:39:19 EDT 2026
