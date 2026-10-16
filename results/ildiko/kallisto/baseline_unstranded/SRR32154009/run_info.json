@@ -1,0 +1,13 @@
+{
+	"n_targets": 149419,
+	"n_bootstraps": 0,
+	"n_processed": 51177396,
+	"n_pseudoaligned": 46353260,
+	"n_unique": 17627031,
+	"p_pseudoaligned": 90.6,
+	"p_unique": 34.4,
+	"kallisto_version": "0.48.0",
+	"index_version": 10,
+	"start_time": "Fri Oct 16 18:23:19 2026",
+	"call": "kallisto quant -i /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx -o /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/SRR32154009 -t 8 /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154009_1.fastq.gz /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154009_2.fastq.gz"
+}
