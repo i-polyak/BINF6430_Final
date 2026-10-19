@@ -1,0 +1,7 @@
+name: fastqc_env
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - fastqc
+prefix: /home/caldwell.ja/.conda/envs/fastqc_env
