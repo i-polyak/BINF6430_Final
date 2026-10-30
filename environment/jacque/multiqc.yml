@@ -1,0 +1,7 @@
+name: multiqc
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - multiqc
+prefix: /home/caldwell.ja/.conda/envs/multiqc
