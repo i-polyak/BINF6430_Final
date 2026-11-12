@@ -14,3 +14,12 @@ sample_table_30.tsv                samples, conditions, batch, SV1
 sessionInfo.txt                    R and package versions
 
 Not included: dds.rds (fitted model, recreated by the script)
+
+## Two versions
+
+This folder: 30-sample run, the libraries shared by GEO and the authors' GitHub sampleTable_SVs.txt,
+using the authors' published SV1 values.
+
+33_samples/: the 33 GEO libraries, which Supplemental Table S3 shows is the sample set of the
+published analysis, with SV1 recomputed. This is the primary reproduction; the 30-sample run is kept
+for comparison. See 33_samples/README.md and results/comparisons/ildiko/.
