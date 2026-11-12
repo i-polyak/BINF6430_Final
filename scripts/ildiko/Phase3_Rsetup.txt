@@ -1,0 +1,180 @@
+Check scratch for files, to make sure they don't get 30 day purged
+du -sh /scratch/polyak.i/binf6430/*
+find /scratch/polyak.i/binf6430 -name abundance.h5 | wc -l
+find /scratch/polyak.i/binf6430/FinalProject -name abundance.h5 | sort
+
+Found 33 samples in `baseline_unstranded/` (SRR32153993–SRR32154025) plus the 3 strand-test runs. Read the file contents to update the accesss time.
+find /scratch/polyak.i/binf6430/FinalProject/kallisto -type f -exec cat {} + > /dev/null
+
+check that it worked
+stat /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/SRR32154025/abundance.h5
+
+reading them didn't update the timestamp.  need to copy and move to courses folder.
+rsync -av /scratch/polyak.i/binf6430/FinalProject/kallisto/ /courses/BINF6430.202710/students/polyak.i/kallisto_backup/
+find /courses/BINF6430.202710/students/polyak.i/kallisto_backup -name abundance.h5 | wc -l
+
+
+Rstudio OOD has wrong versions of R, we need 4.2.3.  Need to use RStudio desktop app and download correct version.
+
+Download R 4.2.3
+Go to: https://cran.r-project.org/bin/windows/base/old/
+Click 4.2.3.
+Click R-4.2.3-win.exe. It will download, probably to your Downloads folder.
+
+Tell RStudio to use R 4.2.3
+In RStudio, click Tools (top menu), then Global Options...
+General should already be selected on the left. At the top you’ll see R version: with a path ending in R-4.5.2. Click Change... next to it.
+In the window that opens, choose Choose a specific version of R, then click [64-bit] C:\Program Files\R\R-4.2.3 in the list.
+Click OK, then OK again.
+RStudio will say it needs to restart. Close RStudio completely and reopen it.
+
+check version
+R.version.string
+
+Install BiocManager - tool that installs Bioconductor packages like DESeq2. 
+install.packages("BiocManager")
+
+The Rtools warning appears only because R considered building from source code. If we install the ready-made (binary) version, Rtools isn’t needed.
+The SSL error happened while downloading that source version. It’s a connection hiccup, not something wrong with your setup.
+
+Ask R for the binary version instead
+install.packages("BiocManager", type = "binary")
+
+Set Bioconductor to version 3.15
+This tells BiocManager to use the Bioconductor release that matches the paper.
+options(pkgType = "binary")
+BiocManager::install(version = "3.15")
+
+Same SSL error as before, now on Bioconductor’s website. The earlier binary download worked, so your internet is fine. What’s failing is R 4.2’s security check on the connection.
+Sys.setenv(R_LIBCURL_SSL_REVOKE_BEST_EFFORT = TRUE)
+BiocManager::install(version = "3.15")
+
+Downgrade 16 packages to Bioconductor version '3.15'? [y/n]: Y
+
+Half the downloads worked and half failed with the same SSL error, even from the same server. Intermittent failures like this usually mean the connection itself is flaky, and RStudio’s download method handles it poorly. Windows’ own download method (wininet) tends to be steadier.
+options(url.method = "wininet", download.file.method = "wininet")
+BiocManager::install(version = "3.15")
+
+It will retry what failed: BiocVersion (the important one, since it’s what locks in 3.15) plus class, foreign, nlme, nnet, rpart, spatial, and survival. If it asks to downgrade, answer y again. You may see a warning that wininet is deprecated; ignore it.
+
+When it finishes, check that it worked:
+BiocManager::version()
+3.15 - it worked! Bioconductor is now set to 3.15
+
+
+Install the analysis packages
+
+This is the big download. DESeq2 pulls in a lot of other packages, so expect 5–15 minutes of scrolling text:
+
+r
+BiocManager::install(c("DESeq2", "tximport", "fgsea", "rhdf5", "rtracklayer"), update = FALS
+
+When it’s done, check the three versions that matter:
+packageVersion("DESeq2"); packageVersion("tximport"); packageVersion("fgsea")
+All three match the paper exactly: DESeq2 1.36.0, tximport 1.24.0, fgsea 1.22.0.
+
+Install the helper packages from CRAN
+These are for gene sets, data handling, and plots:
+install.packages(c("msigdbr", "dplyr", "readr", "ggplot2", "pheatmap"))
+
+When it’s done, run this check. It loads each package and prints the msigdbr version:
+library(DESeq2); library(tximport); library(fgsea); library(rhdf5); library(rtracklayer)
+library(msigdbr); library(dplyr); library(readr); library(ggplot2); library(pheatmap)
+packageVersion("msigdbr")
+
+Install GenomeInfoDbData directly
+options(url.method = "wininet", download.file.method = "wininet")
+BiocManager::install("GenomeInfoDbData", update = FALSE)
+
+Tell R to allow source for this one package:
+BiocManager::install("GenomeInfoDbData", type = "source", update = FALSE)
+
+load check
+library(DESeq2); library(tximport); library(fgsea); library(rhdf5); library(rtracklayer)
+
+The helper packages from CRAN
+install.packages(c("msigdbr", "dplyr", "readr", "ggplot2", "pheatmap"))
+
+click Yes to restart pop up window
+
+A useful detail: you got msigdbr 7.5.1, the last version built for R 4.2. It contains MSigDB release 7.5.1 from early 2022, the same period as the paper’s Bioconductor 3.15 packages. So your Hallmark gene sets are likely the same vintage the authors used. Worth a sentence in the report.
+
+Confirm everything loads
+library(msigdbr); library(dplyr); library(readr); library(ggplot2); library(pheatmap)
+packageVersion("msigdbr")
+
+Save the download settings permanently
+This puts the SSL fixes in a startup file R reads every time it opens. The if line applies them only to R 4.2, so your R 4.5.2 setup is unaffected.
+1. Run in console
+file.edit("~/.Rprofile")
+
+2. A blank file opens in the editor pane (top left). Paste this into it:
+   if (getRversion() < "4.3") {
+     Sys.setenv(R_LIBCURL_SSL_REVOKE_BEST_EFFORT = TRUE)
+     options(url.method = "wininet", download.file.method = "wininet", pkgType = "binary")
+   }
+
+3. Save with Ctrl+S.
+4. Restart R: Session → Restart R.
+5. Check that it took:
+getOption("download.file.method")
+
+Settings are saved and R setup is finished
+
+Package the .h5 files on Explorer
+cd /courses/BINF6430.202710/students/polyak.i/kallisto_backup
+tar -czf /courses/BINF6430.202710/students/polyak.i/kallisto_h5.tar.gz baseline_unstranded/*/abundance.h5 baseline_unstranded/*/run_info.json
+ls -lh /courses/BINF6430.202710/students/polyak.i/kallisto_h5.tar.gz
+tar -tzf /courses/BINF6430.202710/students/polyak.i/kallisto_h5.tar.gz | grep -c abundance.h5
+
+The bundle is 147 MB and all 33 .h5 files inside
+Download it to laptop
+1. In your browser, go to Explorer’s Open OnDemand page.
+2. In the top menu, click Files, then Home Directory.
+3. In the path bar at the top, type this and press Enter:
+/courses/BINF6430.202710/students/polyak.i/
+4. Find kallisto_h5.tar.gz, select its checkbox, and click Download.
+
+
+Unpack files from R
+phase3 <- "C:/Users/ipoly/OneDrive/Desktop/BINF6430_Trans/Final Project/Phase3"
+file.exists(file.path(phase3, "kallisto_h5.tar.gz"))
+untar(file.path(phase3, "kallisto_h5.tar.gz"), exdir = file.path(phase3, "ExplorerAbundanceFiles"))
+length(list.files(file.path(phase3, "ExplorerAbundanceFiles"), pattern = "abundance.h5", recursive = TRUE))
+
+Remove `baseline_unstranded` folder from all the subdirectories on laptop
+phase3 <- "C:/Users/ipoly/OneDrive/Desktop/BINF6430_Trans/Final Project/Phase3"
+abund  <- file.path(phase3, "ExplorerAbundanceFiles")
+srr    <- list.dirs(file.path(abund, "baseline_unstranded"), recursive = FALSE)
+all(file.rename(srr, file.path(abund, basename(srr))))
+length(list.files(file.path(abund, "baseline_unstranded")))
+
+remove the empty folder and do a final count
+unlink(file.path(abund, "baseline_unstranded"), recursive = TRUE)
+length(list.files(abund, pattern = "abundance.h5", recursive = TRUE))
+
+
+Download GTF files onto laptop
+1. Copy this link into your browser’s address bar and press Enter:
+https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gtf.gz
+2. The download starts on its own. The file is gencode.vM30.annotation.gtf.gz, about 30–40 MB.
+3. Press Ctrl + J to watch it finish.
+4. Move to Phase 3 folder next to abundance folder
+
+File the mapping Data:
+1. Go to sample_mapping_GSE288245.tsv file in metadata folder on our final project repo
+https://github.com/i-polyak/BINF6430_Final/blob/main/metadata/sample_mapping_GSE288245.tsv
+2. download raw file
+3. move the file from downloads to Phase3 folder on laptop
+
+The author's files:
+1. go to mouse differential gene expression folder in author's repo 
+https://github.com/jcbloom/hypo_menopauseNavarro/tree/main/Differential%20Gene%20Expression%20Analysis/Mouse
+2. Download all 3 files (sampleTable_SVs.txt, samplekey.txt, tximport_DEanalysis_mouse.Rmd)
+3. Move into Phase 3 folder on laptop
+
+Read authors' tximport_DEanalysis_mouse.Rmd (Jordana Bloom, dated 2024-12-01). tx2gene parsed from gencode.vM30.annotation.gtf; tximport type kallisto, ignoreAfterBar TRUE.
+Authors fit ONE DESeq2 model with both regions, design ~SV1 + condition, condition has 6 levels (region_timepoint). Prefilter rowSums(counts) > 1. results() alpha 0.05, padj < 0.05, no lfcShrink.
+Authors' script lists 33 libraries (batch A 18, batch B 15). Only 30 are on GEO, so our run lacks 3 of their samples, and their SV1 was estimated on all 33. Batch is in sampleTable but not in the design.
+Gene biotype from biomaRt current Ensembl (useMart ensembl), protein_coding filter applied after DE. Our version uses GENCODE vM30 gene_type instead.
+
