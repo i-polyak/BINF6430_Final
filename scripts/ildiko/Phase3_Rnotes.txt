@@ -1,0 +1,253 @@
+Step 1. Look at authors' Files
+Look at 3 files:
+samplekey.txt
+sampleTable_SVs.txt
+sample_mapping_GSE288245.tsv
+
+all 3 libraries missing from GEO are intact controls:
+
+L16_5443_S1 (PH_intact, batch A)
+L16_5452_S10 (POA_intact, batch A)
+L534_3_S3 (PH_intact, batch B)
+
+So our 30-sample run isn’t just a bit smaller. It’s missing a chunk of the control groups:
+
+Group	Authors (33)	Ours (30)
+PH_intact	5	3
+PH_14dOVX	5	5
+PH_4mOVX	6	6
+POA_intact	5	4
+POA_14dOVX	6	6
+POA_4mOVX	6	6
+
+Every comparison is against intact, so fewer controls means less statistical power. Expect fewer DEGs than the paper, especially in PH, where controls drop from 5 to 3. That’s a real reproducibility finding and worth putting at the top of Friday notes.
+
+Step 2: Build the sample table in R
+read your mapping table and the authors’ SV1 file, keep the 30 shared samples, attach each sample’s condition and SV1, and check that everything lines up
+
+phase3 <- "C:/Users/ipoly/OneDrive/Desktop/BINF6430_Trans/Final Project/Phase3"
+
+map <- read.delim(file.path(phase3, "sample_mapping_GSE288245.tsv"), colClasses = "character")
+sv  <- read.delim(file.path(phase3, "sampleTable_SVs.txt"), row.names = 1)
+
+shared <- map[map$status == "in_GEO_and_analysis", ]
+nrow(shared)
+
+coldata <- data.frame(
+  SRR       = shared$SRR,
+  library   = shared$library_name,
+  condition = sv[shared$library_name, "condition"],
+  batch     = sv[shared$library_name, "batch"],
+  SV1       = sv[shared$library_name, "SV1"]
+)
+rownames(coldata) <- coldata$SRR
+
+all(coldata$condition == shared$authors_group)
+
+coldata$condition <- factor(coldata$condition,
+  levels = c("PH_intact", "PH_14dOVX", "PH_4mOVX", "POA_intact", "POA_14dOVX", "POA_4mOVX"))
+table(coldata$condition)
+
+files <- file.path(phase3, "ExplorerAbundanceFiles", coldata$SRR, "abundance.h5")
+names(files) <- coldata$SRR
+all(file.exists(files))
+
+
+Notes: Built 30-sample coldata in R from sample_mapping_GSE288245.tsv (status in_GEO_and_analysis) joined to authors' sampleTable_SVs.txt by library name. Conditions match authors_group on all 30. All 30 abundance.h5 found.
+The 3 libraries missing from GEO are all intact controls (L16_5443_S1 PH, L16_5452_S10 POA, L534_3_S3 PH). Our group sizes PH_intact 3, PH_14dOVX 5, PH_4mOVX 6, POA_intact 4, POA_14dOVX 6, POA_4mOVX 6, vs authors' 5/5/6/5/6/6. Expect fewer DEGs, especially PH.
+
+Step 3: Build tx2gene from the GTF
+These lines read the GENCODE vM30 GTF and make two tables:
+tx2gene: each transcript → its gene. tximport uses it to add transcripts up into genes.
+geneinfo: each gene → its name and type (e.g., protein_coding). We’ll use it later to count protein-coding DEGs.
+
+gtf <- rtracklayer::import(file.path(phase3, "gencode.vM30.annotation.gtf.gz"))
+
+tx <- gtf[gtf$type == "transcript"]
+tx2gene <- data.frame(TXNAME = tx$transcript_id, GENEID = tx$gene_id)
+nrow(tx2gene)
+head(tx2gene, 3)
+any(duplicated(tx2gene$TXNAME))
+
+g <- gtf[gtf$type == "gene"]
+geneinfo <- data.frame(gene_id = g$gene_id, gene_name = g$gene_name, gene_type = g$gene_type)
+nrow(geneinfo)
+sum(geneinfo$gene_type == "protein_coding")
+
+rm(gtf, tx, g)
+
+Note: tx2gene from gencode.vM30.annotation.gtf.gz via rtracklayer::import, transcript rows: 149,419 transcripts, no duplicates, versioned IDs kept. geneinfo from gene rows: 56,691 genes, 21,919 protein_coding (GENCODE vM30 gene_type).
+
+Step 4: tximport
+This reads the 30 .h5 files and adds up transcript estimates into gene-level counts, using the same settings as the authors:
+
+library(tximport)
+txi <- tximport(files, type = "kallisto", tx2gene = tx2gene, ignoreAfterBar = TRUE)
+
+dim(txi$counts)
+all(colnames(txi$counts) == rownames(coldata))
+round(colSums(txi$counts) / 1e6, 1)
+
+Note: tximport (type kallisto, ignoreAfterBar TRUE) on 30 samples: 56,691 genes x 30, sample order matches coldata, no missing-transcript warnings. Counted reads per sample 36.7 to 65.9 million.
+
+Step 5: Run DESeq2
+This sets up the model the same way the authors did: one model with all 30 samples, design ~SV1 + condition, dropping genes with a total count of 1 or less:
+
+library(DESeq2)
+dds <- DESeqDataSetFromTximport(txi, coldata, ~ SV1 + condition)
+nrow(dds)
+dds <- dds[rowSums(counts(dds)) > 1, ]
+nrow(dds)
+dds <- DESeq(dds)
+
+
+Note:  DESeq2 finished. The filter dropped genes with almost no reads, leaving 42,166 genes in the model.
+DESeq2 1.36.0: DESeqDataSetFromTximport(txi, coldata, ~ SV1 + condition), prefilter rowSums(counts) > 1 kept 42,166 of 56,691 genes, DESeq() ran without warnings.
+
+
+Step 6: The 4 comparisons and the DEG counts
+These lines pull the 4 time-point vs. intact comparisons from the model, add gene names and types from GENCODE, and count DEGs at padj < 0.05, overall and protein-coding only, next to the paper’s numbers:
+
+contrasts <- list(
+  PH_14d  = c("condition", "PH_14dOVX",  "PH_intact"),
+  PH_4m   = c("condition", "PH_4mOVX",   "PH_intact"),
+  POA_14d = c("condition", "POA_14dOVX", "POA_intact"),
+  POA_4m  = c("condition", "POA_4mOVX",  "POA_intact")
+)
+
+res_list <- lapply(contrasts, function(ct) {
+  r <- as.data.frame(results(dds, contrast = ct, alpha = 0.05))
+  idx <- match(rownames(r), geneinfo$gene_id)
+  r$gene_name <- geneinfo$gene_name[idx]
+  r$gene_type <- geneinfo$gene_type[idx]
+  r
+})
+
+deg_summary <- data.frame(
+  all_DEGs       = sapply(res_list, function(r) sum(r$padj < 0.05, na.rm = TRUE)),
+  protein_coding = sapply(res_list, function(r) sum(r$padj < 0.05 & r$gene_type == "protein_coding", na.rm = TRUE)),
+  paper          = c(13, 82, 14, 70)
+)
+deg_summary
+
+
+Then check the paper’s top gene, Gm28040, in each comparison:
+do.call(rbind, lapply(names(res_list), function(n) {
+  x <- res_list[[n]][which(res_list[[n]]$gene_name == "Gm28040"), c("gene_name", "log2FoldChange", "padj")]
+  cbind(comparison = n, x)
+}))
+
+
+The paper reports Gm28040 up in PH (positive log2FoldChange) and down in POA (negative), at both time points.
+The paper’s top gene reproduces well. One thing to know first:
+GENCODE vM30 has two different genes named Gm28040. The suffixes .101, .102, and so on aren’t real IDs; R added them to keep row names unique when stacking the four tables. The two real genes are:
+ENSMUSG00000098306: no change in any comparison (padj = 1). Not the paper’s gene.
+ENSMUSG00000115958: the one that matches the paper. The one overlapping Kiss1 is the one that behaves like kisspeptin.
+
+For ENSMUSG00000115958:
+Comparison		Our log2FC	Our padj	Paper (approximate, read from Fig. 2)	Match?
+PH 14d vs intact	+2.70		1.2e-4		up, about +3, significant		✅
+PH 4m vs intact		+3.30		4.7e-8		up, about +4, significant		✅
+POA 14d vs intact	−2.48		1.5e-5		down, about −2.5, significant		✅
+POA 4m vs intact	−1.49		0.126		down, about −1.2, significant		Direction matches, not significant
+
+So the direction and rough size match in all four comparisons, and significance matches in three. POA 4m falls just short. That fits with having fewer POA controls (4 instead of 5), though it could also be partly the version and SV1 differences.
+
+Note:  Gm28040: GENCODE vM30 has two genes with this name. ENSMUSG00000098306 is unchanged (padj 1). ENSMUSG00000115958 matches the paper: PH 14d log2FC +2.70 padj 1.2e-4, PH 4m +3.30 padj 4.7e-8, POA 14d -2.48 padj 1.5e-5, POA 4m -1.49 padj 0.126 (same direction, not significant).
+
+Comparison	Our protein-coding DEGs	Paper	Ours, all gene types
+PH 14d vs intact	19		13	75
+PH 4m vs intact		56		82	114
+POA 14d vs intact	30		14	106
+POA 4m vs intact	55		70	140
+
+I predicted wrong. I expected all four to come in lower because of the missing controls. Instead we found more DEGs at 14 days and fewer at 4 months. So fewer controls didn’t simply shrink everything, and the story is more interesting:
+
+The paper’s main pattern holds: more DEGs at 4 months than at 14 days, in both regions.
+But it’s much weaker for us. In the paper, PH goes 13 → 82 (about 6x) and POA 14 → 70 (5x). For us, PH goes 19 → 56 (3x) and POA 30 → 55 (under 2x). The “delayed response” signal, the paper’s headline finding, comes out noticeably flatter.
+
+Likely contributors, worth listing for Friday but not yet confirmed:
+Missing controls. Removing 3 intact samples changes the baseline every comparison is measured against, not just the statistical power. That can push counts in either direction.
+Gene-type source. The authors labeled genes using current Ensembl (biomaRt) with version numbers stripped. Genes Ensembl has since retired or reclassified would drop out of their protein-coding count but stay in ours. That could explain part of the gap.
+SV1 was estimated on 33 samples and we use it on 30.
+
+Clean up folder and files:
+inputs <- file.path(phase3, "inputs")
+dir.create(inputs)
+
+to_move <- c("gencode.vM30.annotation.gtf.gz", "kallisto_h5.tar.gz",
+             "sample_mapping_GSE288245.tsv", "samplekey.txt",
+             "sampleTable_SVs.txt", "tximport_DEanalysis_mouse.Rmd")
+file.rename(file.path(phase3, to_move), file.path(inputs, to_move))
+
+list.files(inputs)
+
+
+DESeq2_results/
+outdir <- file.path(phase3, "DESeq2_results")
+dir.create(outdir)
+
+for (n in names(res_list)) {
+  r <- res_list[[n]]
+  out <- data.frame(gene_id = rownames(r), gene_name = r$gene_name, gene_type = r$gene_type,
+                    r[, c("baseMean", "log2FoldChange", "lfcSE", "stat", "pvalue", "padj")])
+  out <- out[order(out$padj), ]
+  write.table(out, file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")),
+              sep = "\t", quote = FALSE, row.names = FALSE)
+}
+
+write.table(data.frame(comparison = rownames(deg_summary), deg_summary),
+            file.path(outdir, "DEG_summary.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+write.table(coldata, file.path(outdir, "sample_table_30.tsv"),
+            sep = "\t", quote = FALSE, row.names = FALSE)
+saveRDS(dds, file.path(outdir, "dds.rds"))
+writeLines(capture.output(sessionInfo()), file.path(outdir, "sessionInfo.txt"))
+
+list.files(outdir)
+
+
+Notes: Reorganized Phase3: inputs/ (GTF, kallisto_h5.tar.gz, mapping table, samplekey, sampleTable_SVs, authors' Rmd), ExplorerAbundanceFiles/, DESeq2_results/.
+2026-11-12 Saved to DESeq2_results/: DE_PH_14d_vs_intact.tsv, DE_PH_4m_vs_intact.tsv, DE_POA_14d_vs_intact.tsv, DE_POA_4m_vs_intact.tsv (all genes, sorted by padj), DEG_summary.tsv, sample_table_30.tsv, dds.rds (fitted model for Saturday fgsea), sessionInfo.txt.
+
+
+Step 1: Gene check
+These are the genes labeled in the paper’s Figure 2 volcano plots. In the paper’s figure, all labeled genes are significant. I read the names off the figure images, so a few small labels could be slightly off. If a gene comes back as “not found,” it may be a misread rather than a real miss.
+
+paper_genes <- list(
+  PH_14d  = c("Egr2", "Sgk1", "Gm34066", "Ulk4", "Vps13d", "Abca8a", "Eno1b", "Ltbp2", "Ccdc93"),
+  PH_4m   = c("Gm34066", "Alas2", "C4b", "Serpina3n", "Btg2", "Flt1", "Aox3", "Slc4a1", "Prl", "Gm43517"),
+  POA_14d = c("Pomc", "Irx3", "Tnnt1", "1700012B09Rik", "Gca", "Sgk1", "Endou", "Erich5", "Egr1", "Ermard"),
+  POA_4m  = c("Btg2", "Irx3", "Cyp2e1", "Kdr", "Fbln5", "Tnnt1", "Mpeg1", "Mndal", "Zc3hav1", "Adgrg2",
+              "Erich5", "Flt1", "Ctla2a", "Adm", "Lmod2", "Spred3", "Six1", "Ppp1r3a", "Shox2", "Prl")
+)
+
+gene_check <- do.call(rbind, lapply(names(paper_genes), function(n) {
+  r <- res_list[[n]]
+  do.call(rbind, lapply(paper_genes[[n]], function(g) {
+    hits <- r[which(r$gene_name == g), ]
+    if (nrow(hits) == 0) return(data.frame(comparison = n, gene = g, log2FC = NA, padj = NA))
+    best <- hits[order(hits$padj), ][1, ]
+    data.frame(comparison = n, gene = g, log2FC = round(best$log2FoldChange, 2), padj = signif(best$padj, 2))
+  }))
+}))
+gene_check$significant <- !is.na(gene_check$padj) & gene_check$padj < 0.05
+
+gene_check
+table(gene_check$comparison, gene_check$significant)
+
+
+What it does: for each comparison, it looks up each labeled gene in our results and reports its fold change and padj. If a name matches two gene IDs (like Gm28040 did), it keeps the more significant one.
+
+Every one of the 49 labeled genes was found in our results:
+Comparison	Significant in ours	Note
+PH 14d		1 of 9			Only Egr2
+PH 4m		7 of 10	
+POA 14d		6 of 10			Including Pomc, the paper’s top POA 14d gene
+POA 4m		16 of 20
+
+Direction matches throughout. Every gene that goes up or down in the paper’s volcano plots goes the same way in ours. For example, Prl is strongly down in both 4-month comparisons (about −8 log2FC), and Pomc is up about 4 at POA 14d. Even the genes that missed significance mostly point the right way.
+
+PH 14d is the weak spot, and it fits the sample story. PH has only 3 intact controls in our data (vs. 5 for the authors), and the 14-day changes are smaller than the 4-month ones. So it’s the comparison most likely to lose genes. Interestingly, we still found 19 protein-coding DEGs there (vs. their 13). So the PH 14d genes we find are mostly different from theirs, which is worth raising Friday.
+
+Notes: Gene check vs genes labeled in paper Fig 2 volcanoes (names read from figure): all 49 found. Significant at padj < 0.05: PH 14d 1 of 9, PH 4m 7 of 10, POA 14d 6 of 10, POA 4m 16 of 20. Direction of change matches the paper for all labeled genes.
+PH 14d weakest (only Egr2 significant) despite 19 protein-coding DEGs vs paper 13, so our PH 14d DEGs are mostly different genes. Likely tied to PH_intact n = 3 vs authors' 5.
