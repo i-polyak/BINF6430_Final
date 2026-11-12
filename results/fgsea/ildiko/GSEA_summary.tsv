@@ -1,0 +1,7 @@
+ranking	PH_14d	PH_4m	POA_14d	POA_4m
+log2FC_all	0	0	0	0
+stat_all	13	31	10	20
+log2FC_baseMean_ge_1	0	3	0	1
+log2FC_baseMean_ge_5	0	2	0	0
+log2FC_baseMean_ge_10	0	4	0	0
+log2FC_baseMean_ge_20	0	4	2	2
