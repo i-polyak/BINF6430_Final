@@ -1,0 +1,78 @@
+DESeq2 builds the design matrix itself from two pieces:
+Piece									Where ours came from
+The design formula ~ SV1 + condition					The authors’, copied exactly from their script
+The sample table (which sample is which condition, and its SV1 value)	Built by us today (coldata): your mapping table supplied the SRR → library link, and the authors’ sampleTable_SVs.txt supplied each library’s condition and SV1
+
+The authors did the same thing: they passed their sampleTable_SVs.txt and the same formula to DESeq2, and DESeq2 built the matrix. So the recipe is theirs, and the ingredients are their values for our 30 samples.
+
+One small difference: I set the order of the condition levels (PH_intact first). That only changes which group DESeq2 uses as its internal baseline, so it doesn’t affect any of the 4 comparisons, which name both groups explicitly.
+
+library(DESeq2)
+dds <- readRDS(file.path("C:/Users/ipoly/OneDrive/Desktop/BINF6430_Trans/Final Project/Phase3/DESeq2_results", "dds.rds"))
+model.matrix(design(dds), colData(dds))
+
+
+How to read it:
+One row per sample, labeled by SRR.
+(Intercept) is 1 for every sample.
+SV1 is each sample’s SV1 value from the authors’ file.
+5 condition columns (conditionPH_14dOVX, conditionPH_4mOVX, conditionPOA_intact, conditionPOA_14dOVX, conditionPOA_4mOVX). Each sample has a 1 in the column for its group and 0 elsewhere.
+There’s no PH_intact column. PH_intact is the baseline, so those 3 samples have 0 in all five condition columns.
+
+            		(Intercept)          SV1 conditionPH_14dOVX conditionPH_4mOVX conditionPOA_intact conditionPOA_14dOVX conditionPOA_4mOVX
+SRR32154025           1 -0.128583969                  0                 0                   0                   0                  0
+SRR32154024           1 -0.128081602                  0                 0                   0                   0                  0
+SRR32154023           1 -0.113852846                  1                 0                   0                   0                  0
+SRR32154022           1 -0.125847191                  1                 0                   0                   0                  0
+SRR32154021           1 -0.166587641                  1                 0                   0                   0                  0
+SRR32154020           1 -0.165658184                  0                 1                   0                   0                  0
+SRR32154019           1 -0.208081011                  0                 1                   0                   0                  0
+SRR32154018           1 -0.022100324                  0                 1                   0                   0                  0
+SRR32154017           1  0.182329708                  0                 0                   1                   0                  0
+SRR32154016           1  0.262111161                  0                 0                   1                   0                  0
+SRR32154015           1  0.155194487                  0                 0                   0                   1                  0
+SRR32154014           1  0.134170043                  0                 0                   0                   1                  0
+SRR32154013           1  0.207764522                  0                 0                   0                   1                  0
+SRR32154012           1  0.179810192                  0                 0                   0                   0                  1
+SRR32154011           1  0.056791881                  0                 0                   0                   0                  1
+SRR32154010           1  0.264846819                  0                 0                   0                   0                  1
+SRR32154008           1  0.170742085                  0                 0                   1                   0                  0
+SRR32154007           1  0.111604448                  0                 0                   1                   0                  0
+SRR32154006           1  0.098283414                  0                 0                   0                   1                  0
+SRR32154005           1  0.006198624                  0                 0                   0                   1                  0
+SRR32154004           1  0.261545312                  0                 0                   0                   1                  0
+SRR32154003           1  0.025905346                  0                 0                   0                   0                  1
+SRR32154002           1  0.227129461                  0                 0                   0                   0                  1
+SRR32154001           1  0.016763236                  0                 0                   0                   0                  1
+SRR32153999           1 -0.236061327                  0                 0                   0                   0                  0
+SRR32153998           1 -0.221466608                  1                 0                   0                   0                  0
+SRR32153996           1 -0.220708047                  1                 0                   0                   0                  0
+SRR32153995           1 -0.231964587                  0                 1                   0                   0                  0
+SRR32153994           1 -0.140147975                  0                 1                   0                   0                  0
+SRR32153993           1 -0.262940444                  0                 1                   0                   0                  0
+attr(,"assign")
+[1] 0 1 2 2 2 2 2
+attr(,"contrasts")
+attr(,"contrasts")$condition
+[1] "contr.treatment"
+
+
+
+PH_intact (the baseline) is the 3 rows with 0 in every condition column: SRR32154025, SRR32154024, and SRR32153999.
+Every other sample has exactly one 1, in its own group’s column.
+The two lines at the bottom are R’s bookkeeping. assign (0 1 2 2 2 2 2) records which term each column came from: the intercept, SV1, then the 5 condition columns. contr.treatment means each group is compared against the baseline.
+
+
+The SV1 column shows something important
+Region			SV1 range		Sign
+PH (14 samples)		−0.262 to −0.022	all negative
+POA (16 samples)	+0.006 to +0.265	all positive
+
+SV1 separates the two brain regions perfectly. This is direct evidence for the concern in your progress report that SV1 “may largely separate the two brain regions rather than a technical batch.”
+
+Why it matters: the condition column already tells the model which region each sample is from. So the region part of SV1 is redundant. What SV1 really contributes is the smaller variation within each region, and we don’t know what that variation represents (batch, dissection, RNA quality?). That’s a strong point for the report’s critique section.
+the condition column already tells the model which region each sample is from. So the region part of SV1 is redundant. What SV1 really contributes is the smaller variation within each region, and we don’t know what that variation represents (batch, dissection, RNA quality?). That’s a strong point for the report’s critique section.
+
+
+Note:  Design matrix (model.matrix of ~ SV1 + condition): 30 x 7, columns Intercept, SV1, and 5 condition columns (PH_intact is the baseline, treatment coding). Group columns match sample table.
+SV1 is negative for all 14 PH samples (-0.262 to -0.022) and positive for all 16 POA samples (+0.006 to +0.265). SV1 perfectly separates brain region, which condition already encodes, so its useful contribution is only within-region variation of unknown origin. Supports progress report concern about SV1.
