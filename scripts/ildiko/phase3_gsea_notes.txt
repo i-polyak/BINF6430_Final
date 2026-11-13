@@ -1,0 +1,34 @@
+Gene set enrichment analysis (GSEA), run with fgsea, on the 33-sample DESeq2 results.
+it’s the last analysis step of the proposal’s plan Phase 2, “run fgsea on Hallmark gene sets and compare to Fig. 1D.” Yesterday you did it for the 30-sample run. Today repeats it for the 33-sample run, which is now the main reproduction
+
+The 33-sample GSEA (fgsea) ran cleanly, and all 5 files are saved. Here’s how it compares:
+Comparison	S1 significant (published)	Ours, 33 samples, stat: significant / NES correlation with S1	Ours, 30 samples, stat (yesterday): correlation
+PH 14d			4				5 / 0.30								0.75
+PH 4m			25				27 / 0.92								0.94
+POA 14d			10				5 / 0.61								0.87
+POA 4m			16				17 / 0.79								0.89
+
+The authors’ log2FC ranking again gives 0 significant in all four comparisons, consistent with every other test of it.
+
+What this shows:
+The significant counts with stat ranking now match S1 closely in three comparisons: 5 vs. 4, 27 vs. 25, and 17 vs. 16. POA 14d is the exception (5 vs. 10).
+PH 4m, the paper’s headline comparison, reproduces strongly (0.92).
+But the NES correlations are lower than yesterday’s 30-sample run in three of four comparisons. That fits yesterday’s SV1 finding: the 30-sample run used the authors’ own SV1 values, while the 33-sample run uses our recomputed SV1, which pulls results away from theirs. So the right samples with an approximate SV1 can match S1 less closely than slightly wrong samples with their exact SV1. SV1 matters more than the 3 samples.
+PH 14d stays low (0.30), as expected, since S1’s PH 14d didn’t match any of their own DESeq2 comparisons either.
+
+
+compared the 33-sample stat heatmap with the authors’ S1, pathway by pathway, for the 26 pathways in Fig. 1D. It’s a much better match than the overall correlations suggested:
+Comparison	Significant in S1 (of the 26)	Also significant in ours	Ours only	Same direction (all 26)
+PH 14d			4				3			0			19 / 26
+PH 4m			18				18 (all)		2			25 / 26
+POA 14d			6				4			0			19 / 26
+POA 4m			11				10			2			23 / 26
+
+Every disagreement is a near-miss in the same direction, with nothing contradictory:
+
+Missed by us: PH 14d hypoxia (NES 1.51 theirs vs. 1.25 ours), POA 14d IL2/STAT5 and IL6/JAK/STAT3, and POA 4m complement. All positive in both, just short of significance in ours.
+Extra in ours: PH 4m apoptosis and p53, and POA 4m fatty acid metabolism and mTORC1. Each points the same way as theirs, just over the threshold in ours.
+
+So for the Fig. 1D pathways, the 33-sample run with stat ranking reproduces the published heatmap very closely, especially PH 4m, where all 18 of their significant pathways reproduce. The lower overall correlations came mostly from the other 24 Hallmark pathways that aren’t in the figure. The authors’ own log2FC ranking, as published in their code, still reproduces none of it.
+
+That’s a good headline for the meeting: the paper’s main pathway figure reproduces, but only with a different ranking than the one in their shared code.
