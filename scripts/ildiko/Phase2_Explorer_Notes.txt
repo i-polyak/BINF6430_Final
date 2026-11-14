@@ -1,0 +1,856 @@
+Moving to Explorer
+/courses/BINF6430.202710/students/polyak.i/
+└── FinalProject/              ← clone of BINF6430_Final
+    ├── data/                  (README only; .gitignore blocks real data)
+    ├── environment/
+    │   └── ildiko/            your own YAMLs
+    ├── metadata/              sample mapping, SRR list, sample key
+    ├── scripts/
+    │   └── ildiko/            your scripts, one sample first, then batch
+    ├── results/
+    │   └── ildiko/
+    │       ├── fastqc/
+    │       ├── multiqc/
+    │       └── kallisto/      final copies, safe from the purge
+    └── logs/
+        └── ildiko/            SLURM logs (record of every run)
+
+/scratch/polyak.i/binf6430/
+└── FinalProject/
+    ├── raw/                   .sra files and FASTQs
+    ├── reference/             GENCODE vM30 transcripts, GTF, kallisto index
+    ├── fastqc/                working QC output
+    └── kallisto/              working quant output
+
+move into my student directory
+cd ~/binf6430/students/polyak.i/
+
+clone GitHub repo
+git clone https://github.com/i-polyak/BINF6430_Final.git FinalProject
+
+move into new folder
+cd FinalProject
+
+look in the folder and look at the tree
+ls
+tree
+(base) [polyak.i@c0584 FinalProject]$ tree
+.
+├── LICENSE
+├── README.md
+├── data
+│   └── README.md
+├── environment
+│   ├── anaita
+│   │   ├── BINF6430-ovx-quant.yml
+│   │   └── qc_env.yml
+│   ├── ildiko
+│   │   └── README.md
+│   ├── jacque
+│   │   └── README.md
+│   └── project
+│       └── README.md
+├── metadata
+│   ├── GSE288245_family.soft
+│   ├── README.md
+│   ├── SRR_Acc_List.txt
+│   ├── SraRunTable.csv
+│   └── sample_mapping_GSE288245.tsv
+├── papers
+│   ├── Bloom et al. 2026.pdf
+│   └── Piehl et al 2022.pdf
+├── reports
+│   └── FinalProject_PaperSelection.pdf
+├── results
+│   ├── README.md
+│   └── qc
+│       └── multiqc_report.html
+└── scripts
+    ├── anaita
+    │   └── readme.md
+    ├── ildiko
+    │   └── readme.md
+    ├── jacque
+    │   └── readme.md
+    └── project
+        └── readme.md
+
+16 directories, 22 files
+
+Build Scratch Folder
+mkdir -p /scratch/polyak.i/binf6430/FinalProject/{raw,reference,fastqc,kallisto}
+
+check
+tree /scratch/polyak.i/binf6430/
+/scratch/polyak.i/binf6430/
+├── FinalProject
+│   ├── fastqc
+│   ├── kallisto
+│   ├── raw
+│   └── reference
+└── project04
+
+check conda settings
+cat ~/.condarc
+# Where to download packages
+channels:
+  - r
+  - conda-forge
+  - bioconda
+  - defaults
+
+# Look for packages in each channel in order until found
+channel_priority: flexible
+
+# Don't ask me "yes or no" when installing
+always_yes: true
+
+# Solve my environment faster (used for older conda builds)
+solver: libmamba
+
+# Allows seamless integration with pip
+pip_interop_enabled: true
+
+# Always install these packages when creating a new environment
+create_default_packages:
+  - pip
+  - ipython
+  - numpy
+  - matplotlib
+  - pandas
+
+conda-build:
+  quiet: true
+
+Need to change some settings in conda
+Start with a backup
+cp ~/.condarc ~/.condarc.bak
+
+write new .condarc
+cat > ~/.condarc << 'EOF'
+# Channels: conda-forge first, then bioconda (Bioconda's documented setup)
+channels:
+  - conda-forge
+  - bioconda
+
+# Only use lower channels when a package doesn't exist in higher ones
+channel_priority: strict
+
+# Fast, low-memory solver
+solver: libmamba
+
+# Show me what will be installed and ask before proceeding
+always_yes: false
+EOF
+
+
+Compared with old file, this drops the r and defaults channels, pip_interop_enabled, create_default_packages, and the conda-build section. It keeps libmamba.
+
+
+Check results
+cat ~/.condarc
+
+Check micromamba version (alias runs micromamba for conda)
+conda config sources
+
+Write download environment file
+cat > environment/ildiko/fp-download.yml << 'EOF'
+name: fp-download
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - sra-tools=3.2.1
+  - pigz
+EOF
+
+check it
+cat environment/ildiko/fp-download.yml
+
+Spec file is ready, now build environment from it
+conda create -f environment/ildiko/fp-download.yml
+
+Build finished successfully, now activate it
+conda activate fp-download
+
+I am now in the environment.  confirm the version
+fasterq-dump --version
+Version 3.2.1 is installed, exactly what was pinned
+
+Now check pigz (fasterq-dump writes uncompressed FASTQs, pigz is a parallel version of gzip that compresses them much faster using multiple CPUs, which gets me to roughly 25–30 GB. kallisto reads .gz files directly)
+pigz --version
+pigz 2.8 is installed.  yeah!
+
+Now export the lock file, the full record of everything that was installed
+conda env export > environment/ildiko/fp-download.lock.yml
+
+Check the first lines
+head -20 environment/ildiko/fp-download.lock.yml
+
+check end of the file for prefix
+tail -5 environment/ildiko/fp-download.lock.yml
+
+  - pigz=2.8=h421ea60_2
+  - sra-tools=3.2.1=h4304569_1
+  - zstd=1.5.7=hb78ec9c_7
+prefix: "/home/polyak.i/micromamba/envs/fp-download"
+
+Want to remove the prefix so it doesn't point back at my file
+sed -i '/^prefix:/d' environment/ildiko/fp-download.lock.yml
+
+prefix file is gone so lock file is ready to share
+git status
+
+Stage both files for the commit
+git add environment/ildiko/fp-download.yml environment/ildiko/fp-download.lock.yml
+
+run git status again to track that files are staged
+now commit
+git commit -m "Add Ildiko's download env: spec (sra-tools 3.2.1, pigz) and lock file"
+before pushing, pull any changes that might have happened
+git pull --no-edit
+Now push changes
+git push
+
+
+Plan for the first one-sample test:
+sample SRR32154025, which is GSM8761901, L16_5444_S2, PH intact. It’s first in the GEO list, and it’s one of the 30 samples shared between GEO and the authors’ analysis, so it’s useful whichever sample set the group picks.
+prefetch downloads the compressed .sra file into scratch raw/ folder.
+fasterq-dump converts it into two FASTQ files, read 1 and read 2.
+pigz compresses both FASTQs.
+Check the result: file sizes and read counts, compared against what SRA reports for that run.
+
+Start with download
+prefetch SRR32154025 -O /scratch/polyak.i/binf6430/FinalProject/raw
+
+convert to FASTQ
+fasterq-dump /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025 \
+  -O /scratch/polyak.i/binf6430/FinalProject/raw \
+  -t /scratch/polyak.i/binf6430/FinalProject/raw/tmp \
+  -e 16 -p
+
+
+The conversion matches what SRA reports for this run:
+			My fasterq-dump		SRA Run Table
+Spots (read pairs)	56,738,674		5,787,344,748 bases ÷ 102 bp per spot = 56,738,674
+Reads			113,477,348 (2 per spot)	—
+
+Spots versus reads: a “spot” is one read pair, and each pair gives two reads. That’s why reads are exactly double the spots.
+The match is exact, so you got every read with nothing lost or duplicated. This is the check to repeat for all 33 samples in the batch.
+A small detail: 102 bp per spot means 51 bp per read, not the 50 bp the paper says. That’s normal for NovaSeq runs, which typically sequence one extra cycle. It doesn’t affect anything, but it’s an accurate detail for the write-up.
+
+Check files
+ls -lh
+Both FASTQs are big (14GB and 28GB). Now compress them
+pigz -p 16 /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_1.fastq /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_2.fastq
+
+check files
+ls -lh /scratch/polyak.i/binf6430/FinalProject/raw/
+Compression shrank the sample from 28 GB to 3.7 GB, about 7.5 times smaller
+
+Storage math for all 33 samples:
+
+Compressed FASTQs: about 33 × 3.7 GB ≈ 120 GB. That’s close to Jacque’s 117 GB, so her figure was probably for compressed files too.
+.sra files: another ~58 GB if i keep them.
+
+Plan for the batch script
+A SLURM array job. One script runs as 33 separate tasks, one per SRR ID, reading the IDs from metadata/SRR_Acc_List.txt in your repo.
+Each task repeats tonight’s steps: prefetch, then fasterq-dump, then pigz.
+Each task logs a read count check. It records the spot count, so you can compare all 33 against the SRA table in the morning.
+Each task deletes its .sra file after compression succeeds. It only deletes after success, and the file can always be downloaded again. That saves ~58 GB.
+Finished samples are skipped. If a sample’s .fastq.gz files already exist, that task does nothing. So SRR32154025 won’t be redone, and a failed job can be resubmitted safely.
+At most 6 tasks run at once. That’s polite to the shared network and scratch, and it should still finish overnight. Each task requests 8 CPUs, 16 GB of memory, and up to 3 hours.
+Logs go to logs/ildiko/ in your course folder, one file per task, so they persist after scratch purges.
+The script is saved as scripts/ildiko/01_download_fastq.sbatch. The 01_ prefix keeps your pipeline steps in order.
+
+make log folder (SLURM won’t create a missing log folder, and a job pointed at one fails immediately without telling you much)
+mkdir -p logs/Ildiko
+
+The batch script can’t use your conda alias, so it calls micromamba directly. 
+check that the real program can be found and shows where it lives
+which micromamba
+
+micromamba itself is a shell function, set up when micromamba initializes in  .bashrc, not the program file. Functions don’t carry over into batch jobs, so the script needs the actual program’s location
+echo $MAMBA_EXE
+/home/polyak.i/.local/bin/micromamba
+
+
+
+BASH
+From inside FinalProject/
+
+nano scripts/ildiko/01_download_fastq.sbatch
+
+#!/bin/bash
+#SBATCH --job-name=fp_download
+#SBATCH --partition=courses
+#SBATCH --array=1-33%6
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --time=06:00:00
+#SBATCH --output=/courses/BINF6430.202710/students/polyak.i/FinalProject/logs/ildiko/download_%A_%a.out
+
+# Download one SRA run per array task, convert to FASTQ, compress, verify.
+set -eo pipefail
+
+# ---- Paths ----
+PROJ=/courses/BINF6430.202710/students/polyak.i/FinalProject
+RAW=/scratch/polyak.i/binf6430/FinalProject/raw
+ACC_LIST=$PROJ/metadata/SRR_Acc_List.txt
+
+# ---- Pick this task's SRR ID (line N of the list; strip any Windows line endings) ----
+SRR=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACC_LIST" | tr -d '\r')
+TMP=$RAW/tmp/$SRR
+
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${SRR} on $(hostname) at $(date)"
+
+# ---- Skip if this sample already finished ----
+if [[ -f "$RAW/${SRR}.done" ]]; then
+    echo "${SRR} already done, skipping."
+    exit 0
+fi
+
+# ---- Activate environment (aliases and shell functions don't exist in batch jobs) ----
+eval "$(/home/polyak.i/.local/bin/micromamba shell hook --shell bash)"
+micromamba activate fp-download
+
+# ---- 1. Download .sra ----
+prefetch "$SRR" -O "$RAW" --max-size 50G
+
+# ---- 2. Convert to paired FASTQ (spot/read counts print to this log) ----
+mkdir -p "$TMP"
+fasterq-dump "$RAW/$SRR" -O "$RAW" -t "$TMP" -e "$SLURM_CPUS_PER_TASK"
+
+# ---- 3. Compress (replaces .fastq with .fastq.gz) ----
+pigz -p "$SLURM_CPUS_PER_TASK" "$RAW/${SRR}_1.fastq" "$RAW/${SRR}_2.fastq"
+
+# ---- 4. Verify compressed files are intact ----
+pigz -t "$RAW/${SRR}_1.fastq.gz" "$RAW/${SRR}_2.fastq.gz"
+
+# ---- 5. Clean up only after everything above succeeded ----
+rm -rf "$RAW/$SRR" "$TMP"
+touch "$RAW/${SRR}.done"
+
+echo "${SRR} finished at $(date)"
+EOF
+
+Ctrl + O, Enter, Ctrl + X (save and exit)
+
+
+Now submit the job
+sbatch scripts/ildiko/01_download_fastq.sbatch
+
+Check that its running
+squeue -u $USER
+
+
+
+Let batch job run overnight
+check folder and run
+ls /scratch/polyak.i/binf6430/FinalProject/raw/*.done | wc -l
+all 33 samples finished last night (including the test run)
+
+Collect sample's spot counts for the logs to check against SRA table
+grep -h -E "^Task|spots read" /courses/BINF6430.202710/students/polyak.i/FinalProject/logs/ildiko/download_11115608_*.out
+
+All 33 spot counts match the SRA Run Table exactly. None of the 33 is off by even one read pair.
+Task 33 was SRR32154025 was test sample. It has no count line because it was skipped, as designed, and verified its 56,738,674 by hand last night.
+Counts range from 39.9 to 72.2 million read pairs per sample.
+The whole job ran in about an hour, from 19:45 to roughly 20:45.
+A separate error scan isn’t needed. The script stops at the first failure (set -eo pipefail), and .done is written only at the very end. So 33 .done files plus 33 matching counts means every task succeeded.
+
+Phase 1 downloading is done!  Commit the script to the repo.  stage the script for github
+cd /courses/BINF6430.202710/students/polyak.i/FinalProject && git add scripts/ildiko/01_download_fastq.sbatch && git status
+Commit, pull, and push in one line
+git commit -m "Add batch download script: 33-task array (prefetch, fasterq-dump, pigz, verify)" && git pull --no-edit && git push
+
+Check anaita's log for her index build:
+grep -n -i -A3 "kallisto index" scripts/anaita/anaita_pipeline_log.md
+
+Anaita's kallisto index - info needed to match (she followed authors' choices)
+kallisto version: 0.48.0 (confirm from her log's "kallisto version" line)
+Source file: gencode.vM30.transcripts.fa.gz
+Transcript set: full set, all biotypes (NOT pc_transcripts / protein-coding only)
+Genome build: GRCm39 / mm39
+FASTA headers: unmodified, full "|" headers (matches authors' ignoreAfterBar = TRUE)
+k-mer size: 31 (default)
+Other index flags: none
+Her command: kallisto index -i gencode.vM30.kallisto.idx gencode.vM30.transcripts.fa.gz
+
+Still to ask her:
+Download URL she used (probably GENCODE FTP)
+md5sum of her FASTA file (proves byte-identical input)
+
+How to verify my index matches hers:
+897,905 contigs
+123,081,114 k-mers
+~2.6 GB index file size
+
+Things to consider doing differently / in addition to Anaita
+1. Test the library strand on one sample (worth doing)
+Run kallisto quant on one sample three ways: unstranded, --rf-stranded, --fr-stranded
+Compare pseudoalignment rates in each run's run_info.json
+Expected for KAPA Stranded (dUTP method): --rf about the same as unstranded, --fr drops sharply
+Takes ~10 min, gives real evidence of the library orientation instead of assuming it
+Baseline run stays unstranded to match the group; the stranded run is the Phase 3 sensitivity test
+
+2. Verify the FASTA download with GENCODE's own checksums
+GENCODE publishes an MD5SUMS file next to the FASTA on their FTP site
+Running md5sum on my download and comparing confirms the file is intact
+Compare my md5sum with Anaita's to prove we used identical inputs
+
+3. Use my own FASTQs 
+She quantified Jacque's FASTQs; I quantify my own downloads
+Independent inputs = a real reproducibility test
+My 33 spot counts already match SRA exactly
+
+4. Build a summary table of all 33 samples
+Pull pseudoalignment % and processed reads from each run_info.json into one table
+Easy to compare my run vs hers, sample by sample
+Useful for the progress report
+
+5. Use an array job instead of one loop (method difference, not results)
+Her script runs all 33 one after another in a single job
+An array runs several at once and a failed sample can be rerun alone
+Should give identical numbers either way
+
+Not worth changing:
+Bootstraps: none is fine. DESeq2 via tximport doesn't use them (they're mainly for sleuth)
+k-mer size: keep 31 to match
+
+Write QC environment
+nano environment/ildiko/fp-qc.yml
+
+name: fp-qc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc=0.12.1
+  - multiqc
+
+Spec file is correct, now build it
+conda create -f environment/ildiko/fp-qc.yml
+
+Activate it
+conda activate fp-qc
+fastqc --version
+multiqc --version
+
+exports the lock file and removes the prefix
+conda env export > environment/ildiko/fp-qc.lock.yml && sed -i '/^prefix:/d' environment/ildiko/fp-qc.lock.yml
+
+stage the two QC environments from folder to repo
+cd /courses/BINF6430.202710/students/polyak.i/FinalProject && git add environment/ildiko/fp-qc.yml environment/ildiko/fp-qc.lock.yml && git status
+
+Commit, push and pull
+git commit -m "Add Ildiko's QC env: spec (fastqc 0.12.1, multiqc) and lock file" && git pull --no-edit && git push
+
+FASTQC the test sample
+activate the environment
+conda activate fp-qc
+
+run FastQC on both read files
+fastqc -t 2 -o /scratch/polyak.i/binf6430/FinalProject/fastqc /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_1.fastq.gz /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_2.fastq.gz
+
+can check pass/warn/fail summary straight out of each zip
+unzip -p /scratch/polyak.i/binf6430/FinalProject/fastqc/SRR32154025_1_fastqc.zip SRR32154025_1_fastqc/summary.txt && echo "-----" && unzip -p /scratch/polyak.i/binf6430/FinalProject/fastqc/SRR32154025_2_fastqc.zip SRR32154025_2_fastqc/summary.txt
+
+FastQC test sample SRR32154025 (PH intact, GSM8761901)
+PASS: base quality, N content, adapter content (no trimming needed)
+FAIL/WARN expected for RNA-seq: per base sequence content (random priming bias), duplication, overrepresented
+Overrepresented: poly-A 1.4%, poly-T 0.3% (mRNA poly-A tails from poly-A capture)
+Overrepresented: GTGCCAGTTACCTTG...TTTTT family ~2.4% total, likely 3' end of one highly expressed transcript
+Why Jacque's BLAST got no hits: BLAST masks low-complexity (poly-A/T) regions by default
+To identify: BLAST with low-complexity filter off, or BLAST only the non-T part
+Hypothesis to check: the 8 "overrepresented" failures in Jacque's MultiQC are mostly PH samples
+
+FastQC batch script
+nano scripts/ildiko/02_fastqc.sbatch
+
+#!/bin/bash
+#SBATCH --job-name=fp_fastqc
+#SBATCH --partition=courses
+#SBATCH --array=1-33%10
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=2
+#SBATCH --mem=4G
+#SBATCH --time=02:00:00
+#SBATCH --output=/courses/BINF6430.202710/students/polyak.i/FinalProject/logs/ildiko/fastqc_%A_%a.out
+
+# Run FastQC on both reads of one sample per array task.
+set -eo pipefail
+
+# ---- Paths ----
+PROJ=/courses/BINF6430.202710/students/polyak.i/FinalProject
+RAW=/scratch/polyak.i/binf6430/FinalProject/raw
+OUT=/scratch/polyak.i/binf6430/FinalProject/fastqc
+ACC_LIST=$PROJ/metadata/SRR_Acc_List.txt
+
+# ---- Pick this task's SRR ID ----
+SRR=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACC_LIST" | tr -d '\r')
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${SRR} on $(hostname) at $(date)"
+
+# ---- Skip if both reports already exist ----
+if [[ -f "$OUT/${SRR}_1_fastqc.html" && -f "$OUT/${SRR}_2_fastqc.html" ]]; then
+    echo "${SRR} already has FastQC reports, skipping."
+    exit 0
+fi
+
+# ---- Activate environment ----
+eval "$(/home/polyak.i/.local/bin/micromamba shell hook --shell bash)"
+micromamba activate fp-qc
+
+# ---- Run FastQC on both reads ----
+fastqc -t "$SLURM_CPUS_PER_TASK" -o "$OUT" \
+    "$RAW/${SRR}_1.fastq.gz" "$RAW/${SRR}_2.fastq.gz"
+
+echo "${SRR} FastQC finished at $(date)"
+
+Ctl + O, Enter, Ctrl + X
+
+Submit it
+sbatch scripts/ildiko/02_fastqc.sbatch
+
+Check the queue
+squeue -u $USER
+
+While it runs, start on Kallisto environment
+nano environment/ildiko/fp-quant.yml
+
+name: fp-quant
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - kallisto=0.48.0
+
+Ctrl + O, Enter, Ctrl + X
+
+Build it
+conda create -f environment/ildiko/fp-quant.yml
+
+kallisto 0.48.0 from bioconda: exactly what was pinned.
+hdf5 1.12.1: HDF5 support is included, so this build will write abundance.h5, the file the authors’ tximport code reads.
+Strict channel priority caused no problems. It solved cleanly with only 25 packages.
+It’s essentially identical to Anaita’s environment. Same kallisto, same hdf5 1.12.1, same libcurl 8.8.0, krb5 1.21.3, zlib 1.2.13, and zstd 1.5.6. I arrived at the same environment independently, with a different channel order. That’s a nice point for your reproducibility notes: for this tool, the channel-order question didn’t change the result.
+
+Activate the environment
+conda activate fp-quant
+kallisto version
+
+Export the lock files and remove the prefix line
+conda env export > environment/ildiko/fp-quant.lock.yml && sed -i '/^prefix:/d' environment/ildiko/fp-quant.lock.yml
+
+Download the reference files into your scratch reference/ folder
+cd /scratch/polyak.i/binf6430/FinalProject/reference
+
+Download the transcript FASTA, the annotation GTF (needed later for the transcript-to-gene table in Phase 2), and GENCODE’s checksum file
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.transcripts.fa.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/gencode.vM30.annotation.gtf.gz
+wget https://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_mouse/release_M30/MD5SUMS
+
+wget downloads a file from a web address into the current folder.
+The first URL is the same one Anaita used, so my starting file should be identical to hers.
+
+check output
+ls -lh
+
+verify both downloads against GENCODE’s official checksums
+md5sum -c MD5SUMS --ignore-missing
+
+Get FASTA's checksum value
+md5sum gencode.vM30.transcripts.fa.gz
+ded8aca84450255b9b08b9aec31727b7  gencode.vM30.transcripts.fa.gz
+
+Build kallisto index
+cd /courses/BINF6430.202710/students/polyak.i/FinalProject 
+nano scripts/ildiko/03_kallisto_index.sbatch
+
+#!/bin/bash
+#SBATCH --job-name=fp_kal_index
+#SBATCH --partition=courses
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=4
+#SBATCH --mem=48G
+#SBATCH --time=04:00:00
+#SBATCH --output=/courses/BINF6430.202710/students/polyak.i/FinalProject/logs/ildiko/kallisto_index_%j.out
+
+# Build kallisto 0.48.0 index from unmodified GENCODE vM30 transcripts (default k=31).
+set -eo pipefail
+
+REF=/scratch/polyak.i/binf6430/FinalProject/reference
+FASTA=$REF/gencode.vM30.transcripts.fa.gz
+IDX=$REF/gencode.vM30.kallisto_0.48.0.idx
+
+eval "$(/home/polyak.i/.local/bin/micromamba shell hook --shell bash)"
+micromamba activate fp-quant
+
+echo "Started on $(hostname) at $(date)"
+kallisto version
+md5sum "$FASTA"
+
+kallisto index -i "$IDX" "$FASTA"
+
+ls -lh "$IDX"
+echo "Finished at $(date)"
+
+Ctr + O, Enter, Ctrl + X
+
+Run it
+bash -n scripts/ildiko/03_kallisto_index.sbatch
+
+Sumbit it
+sbatch scripts/ildiko/03_kallisto_index.sbatch
+
+While its running, check on FastQC job
+squeue -u $USER
+
+FastQC looks done, confirm the report
+ls /scratch/polyak.i/binf6430/FinalProject/fastqc/*.html | wc -l
+
+all 66 files are there (2 for each 33 sample)
+combine them with MultiQC.  switch back to QC environment and run it, sending output into new scratch folder
+conda activate fp-qc
+multiqc /scratch/polyak.i/binf6430/FinalProject/fastqc -o /scratch/polyak.i/binf6430/FinalProject/multiqc -n ildiko_multiqc_report
+
+MultiQC found all 66 reports and wrote two things: the HTML report and a _data folder of plain-text tables.
+Copy just the HTML report into your repo
+cp /scratch/polyak.i/binf6430/FinalProject/multiqc/ildiko_multiqc_report.html results/qc/
+
+cofirm both reports are there
+ls -lh results/qc/
+
+
+FastQC/MultiQC all 33 samples (Oct 16)
+FastQC batch job 11145278: 66 reports (33 samples x 2 reads)
+MultiQC 1.35 report: results/qc/ildiko_multiqc_report.html (Jacque's: results/qc/multiqc_report.html)
+Counts per read file match Jacque's exactly: GC content WARN = 7, overrepresented FAIL = 8
+Overrepresented FAIL by sample: 6 samples, 5 PH + 1 POA, ALL in batch 1 (L16 libraries)
+Failing samples: SRR32154025, SRR32154023, SRR32154021, SRR32154020, SRR32154019 (PH), SRR32154011 (POA 4mOVX)
+Batch 2: 0 of 17 samples fail; PH batch 1 = 5 of 8 fail vs PH batch 2 = 0 of 8
+GC WARN by sample: 7 samples, 6 PH + 1 POA, split across both batches
+Interpretation: overrepresented failures = library batch effect (more poly-A/3' end reads in batch 1)
+Interpretation: GC warnings = tissue biology (PH-specific highly expressed transcripts)
+Relevant to Phase 3: authors defined batch but did not model it (~SV1 + condition only)
+Every other sample WARNs on overrepresented, so FAIL vs WARN is a threshold difference (FAIL = one sequence over 1% of reads)
+
+check job
+squeue -u $USER
+
+Check its log
+cat logs/ildiko/kallisto_index_11145844.out
+
+kallisto index (Oct 16)
+Env fp-quant: kallisto 0.48.0, hdf5 1.12.1 (abundance.h5 supported), 25 packages, matches Anaita's env
+Reference downloaded with wget from EBI GENCODE release_M30 (files dated Jul 12, 2022)
+md5sum -c MD5SUMS --ignore-missing: transcripts.fa.gz OK, annotation.gtf.gz OK (MD5SUMS self-entry FAILED is normal)
+My FASTA md5sum: ded8aca84450255b9b08b9aec31727b7 (send to Anaita to compare)
+Index job 11145844: scripts/ildiko/03_kallisto_index.sbatch, 64G, ~10 min
+Index: /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx
+Result: 897,905 contigs, 123,081,114 k-mers, 2.6 GB, k=31 (exact match to Anaita)
+kallisto clipped poly-A tails longer than 10 bases from 876 transcripts (normal)
+
+
+one-sample strand test: SRR32154025 quantified three ways (unstranded, --rf-stranded, --fr-stranded)
+Start with unstranded (group's baseline)
+conda activate fp-quant
+
+mkdir -p /scratch/polyak.i/binf6430/FinalProject/kallisto/strand_test
+
+kallisto quant -i /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx \
+  -o /scratch/polyak.i/binf6430/FinalProject/kallisto/strand_test/SRR32154025_unstranded \
+  -t 16 \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_1.fastq.gz \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_2.fastq.gz
+
+The unstranded run worked:
+				Value
+Read pairs processed		56,738,674, exactly the spot count from the download
+Pseudoaligned			50,972,865
+Pseudoalignment rate		89.8%, within Anaita’s 85–92% range
+Transcripts in index		149,419
+Estimated fragment length	~202 bp
+
+Now the --rf-stranded run. (For the KAPA Stranded kit, we expect this rate to stay close to 89.8%)
+kallisto quant -i /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx \
+  -o /scratch/polyak.i/binf6430/FinalProject/kallisto/strand_test/SRR32154025_rf \
+  -t 16 --rf-stranded \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_1.fastq.gz \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_2.fastq.gz
+
+The --rf-stranded run kept almost everything:
+Mode		Pseudoaligned	Rate
+Unstranded	50,972,865	89.8%
+--rf-stranded	50,108,955	88.3%
+
+A 1.5-point drop is what a reverse-stranded library should give. Nearly every read pair is already in the “read 1 is reverse” orientation, so requiring it loses very little. The small loss is mostly reads that match transcripts on both strands, or a small fraction of reads in the other orientation.
+
+Now the last run, --fr-stranded. (If the library really is reverse-stranded, this one should drop sharply)
+kallisto quant -i /scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx \
+  -o /scratch/polyak.i/binf6430/FinalProject/kallisto/strand_test/SRR32154025_fr \
+  -t 16 --fr-stranded \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_1.fastq.gz \
+  /scratch/polyak.i/binf6430/FinalProject/raw/SRR32154025_2.fastq.gz
+
+The library is confirmed reverse-stranded.
+Mode		Pseudoaligned	Rate
+Unstranded	50,972,865	89.8%
+--rf-stranded	50,108,955	88.3%
+--fr-stranded	2,036,086	3.6%
+
+Strand test SRR32154025 (Oct 16)
+Unstranded: 50,972,865 of 56,738,674 pairs pseudoaligned = 89.8%
+--rf-stranded: 50,108,955 = 88.3%
+--fr-stranded: 2,036,086 = 3.6%
+Of strand-assignable pairs, ~96% fit rf orientation: library is reverse-stranded (KAPA Stranded / dUTP, as expected)
+Fragment length ~202 bp (unstranded and rf)
+Index check during quant: 149,419 targets, 123,081,114 k-mers, 535,927 equivalence classes
+Baseline run stays unstranded (matches group and paper, which states no strand option)
+--rf-stranded = correct setting for this library, use for Phase 3 sensitivity run
+Expected impact: small for most genes; differences mostly where genes overlap on opposite strands
+Outputs: /scratch/polyak.i/binf6430/FinalProject/kallisto/strand_test/
+
+
+Batch quant script
+nano scripts/ildiko/04_kallisto_quant.sbatch
+
+#!/bin/bash
+#SBATCH --job-name=fp_kal_quant
+#SBATCH --partition=courses
+#SBATCH --array=1-33%6
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=48G
+#SBATCH --time=04:00:00
+#SBATCH --output=/courses/BINF6430.202710/students/polyak.i/FinalProject/logs/ildiko/quant_%A_%a.out
+
+# kallisto 0.48.0 quant, unstranded baseline, one sample per array task.
+set -eo pipefail
+
+# ---- Paths ----
+PROJ=/courses/BINF6430.202710/students/polyak.i/FinalProject
+RAW=/scratch/polyak.i/binf6430/FinalProject/raw
+IDX=/scratch/polyak.i/binf6430/FinalProject/reference/gencode.vM30.kallisto_0.48.0.idx
+OUTDIR=/scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded
+ACC_LIST=$PROJ/metadata/SRR_Acc_List.txt
+
+# ---- Pick this task's SRR ID ----
+SRR=$(sed -n "${SLURM_ARRAY_TASK_ID}p" "$ACC_LIST" | tr -d '\r')
+echo "Task ${SLURM_ARRAY_TASK_ID}: ${SRR} on $(hostname) at $(date)"
+
+# ---- Skip if already done ----
+if [[ -f "$OUTDIR/${SRR}.done" ]]; then
+    echo "${SRR} already quantified, skipping."
+    exit 0
+fi
+
+# ---- Activate environment ----
+eval "$(/home/polyak.i/.local/bin/micromamba shell hook --shell bash)"
+micromamba activate fp-quant
+kallisto version
+
+# ---- kallisto only creates the last folder level, so make the parent first ----
+mkdir -p "$OUTDIR"
+
+# ---- Quantify (no strand flag = unstranded; no -b = no bootstraps) ----
+kallisto quant -i "$IDX" -o "$OUTDIR/$SRR" -t "$SLURM_CPUS_PER_TASK" \
+    "$RAW/${SRR}_1.fastq.gz" "$RAW/${SRR}_2.fastq.gz"
+
+touch "$OUTDIR/${SRR}.done"
+echo "${SRR} finished at $(date)"
+
+Ctrl + O, Enter, Ctrl + X
+
+bash -n scripts/ildiko/04_kallisto_quant.sbatch
+sbatch scripts/ildiko/04_kallisto_quant.sbatch
+squeue -u $USER
+
+While quant job run, stage everything new since last push:  quant env files and 3 scripts
+git add environment/ildiko/fp-quant.yml environment/ildiko/fp-quant.lock.yml scripts/ildiko/02_fastqc.sbatch scripts/ildiko/03_kallisto_index.sbatch scripts/ildiko/04_kallisto_quant.sbatch results/qc/ildiko_multiqc_report.html && git status
+
+Commit, pull, and push
+git commit -m "Add quant env, FastQC/index/quant batch scripts, and Ildiko's MultiQC report" && git pull --no-edit && git push
+
+Add to .gitignore:
+# kallisto quant outputs: keep run_info.json, ignore the large abundance files
+abundance.h5
+abundance.tsv
+
+# Ildiko's SLURM logs: ignore all, except the index build log
+logs/ildiko/*.out
+!logs/ildiko/kallisto_index_*.out
+
+Commit and push
+git add logs/ildiko/kallisto_index_11145844.out && git commit -m "Add kallisto index build log (version, md5sum, contig/k-mer fingerprint)" && git pull --no-edit && git push
+
+Back to quant job
+Count done file
+ls /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/*.done | wc -l
+run the pseudoalignment rate loop
+for f in /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/SRR*/run_info.json; do s=$(basename $(dirname $f)); p=$(grep '"p_pseudoaligned"' $f | grep -o '[0-9.]*'); n=$(grep '"n_processed"' $f | grep -o '[0-9]*'); echo -e "$s\t$n\t$p"; done
+
+All 33 samples quantified cleanly, and your rates match Anaita’s.
+			Value
+Samples quantified	33 of 33
+Read pairs processed	Match the download spot counts exactly for all 33
+Pseudoalignment range	85.2–92.1%, the same as Anaita’s reported 85–92%
+Mean / median		90.1% / 90.2%
+PH mean			90.8% (16 samples)
+POA mean		89.5% (17 samples)
+Batch 1 / batch 2 mean	89.8% / 90.4%
+
+kallisto quant baseline unstranded, all 33 (Oct 16)
+Job 11146916: scripts/ildiko/04_kallisto_quant.sbatch, array 33 tasks, 6 at a time, 8 CPUs, 16G
+33 of 33 .done; n_processed matches download spot counts for all 33
+Pseudoalignment 85.2 to 92.1% (mean 90.1, median 90.2), matches Anaita's 85 to 92%
+PH mean 90.8% (n=16), POA mean 89.5% (n=17)
+Batch 1 mean 89.8%, batch 2 mean 90.4%
+Lowest: SRR32153997 = L534_5_S5 (PH 14dOVX, GEO-only, likely animal 9340 PH) at 85.2%, also GC WARN in FastQC
+Possible reason authors excluded it (hypothesis, not proof); raise in sample-set decision
+Other GEO-only samples normal: SRR32154000 (L534_1) 91.5%, SRR32154009 (L534_10) 90.6%
+Outputs: /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/
+.gitignore updated: abundance.h5/.tsv ignored, logs/ildiko/*.out ignored except index log
+
+copy the kallisto outputs from scratch into your course folder, so they’re safe from the purge
+mkdir -p results/ildiko/kallisto/baseline_unstranded
+rsync -av --exclude='*.done' /scratch/polyak.i/binf6430/FinalProject/kallisto/baseline_unstranded/ results/ildiko/kallisto/baseline_unstranded/
+
+rsync is the standard tool for this kind of copy. It copies folders, keeps file dates, and if you run it again later, it only copies what has changed.
+-a (“archive”) copies folders and everything inside them, and keeps file dates and permissions.
+-v lists each file as it’s copied.
+--exclude='*.done' skips the marker files, which only matter in scratch.
+The trailing / on the source path means “copy what’s inside this folder.” Without it, rsync would create an extra baseline_unstranded/ folder inside the destination.
+
+Before committing, save the pseudoalignment table as a file too, so it’s in the repo for the group and the progress report. This is the same loop as before, with a header row, saved to a file instead of printed
+{ echo -e "SRR\tn_processed\tp_pseudoaligned"; for f in results/ildiko/kallisto/baseline_unstranded/SRR*/run_info.json; do s=$(basename $(dirname $f)); p=$(grep '"p_pseudoaligned"' $f | grep -o '[0-9.]*'); n=$(grep '"n_processed"' $f | grep -o '[0-9]*'); echo -e "$s\t$n\t$p"; done; } > results/ildiko/kallisto/pseudoalignment_summary.tsv
+
+commit everything and push
+git add results/ildiko/kallisto && git commit -m "Add kallisto baseline (unstranded) run_info.json for 33 samples and pseudoalignment summary" && git pull --no-edit && git push
+
+
+PHASE 1 COMPLETE (Oct 16)
+Downloads: 33 samples, sra-tools 3.2.1, spot counts match SRA exactly
+FASTQs: /scratch/polyak.i/binf6430/FinalProject/raw/ (~120 GB gzipped, .sra deleted)
+FastQC 0.12.1 / MultiQC 1.35: 66 reports, counts match Jacque's (GC WARN 7, overrepresented FAIL 8 per read file)
+Overrepresented FAIL: 6 samples, 5 PH, all batch 1 (library batch effect)
+Reference: GENCODE vM30 transcripts + GTF, md5 OK, FASTA md5 ded8aca84450255b9b08b9aec31727b7
+Index: kallisto 0.48.0, k=31, 897,905 contigs, 123,081,114 k-mers, 2.6 GB (matches Anaita)
+Strand test: unstranded 89.8%, rf 88.3%, fr 3.6% = reverse-stranded library
+Quant: baseline unstranded, 33 of 33, 85.2 to 92.1% pseudoaligned (matches Anaita)
+Lowest sample SRR32153997 (L534_5, GEO-only) at 85.2%
+Persistent outputs: results/ildiko/kallisto/baseline_unstranded/ (824 MB, abundance files not in git)
+In git: run_info.json x33, pseudoalignment_summary.tsv, all 4 scripts, 3 env specs + locks, MultiQC report, index log
+
+Scripts: 01_download_fastq, 02_fastqc, 03_kallisto_index, 04_kallisto_quant (scripts/ildiko/)
+Envs: fp-download, fp-qc, fp-quant (environment/ildiko/)
+
+Still open:
+Group decision on sample set (30 shared vs 33 GEO vs both)
+Keep scratch FASTQs alive for Phase 3 strand rerun (30-day purge on untouched files)
+Progress report due Oct 28
