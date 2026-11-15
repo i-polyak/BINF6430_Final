@@ -10,9 +10,9 @@
 
 conda deactivate 2>/dev/null || true
 
-source /scratch/caldwell.ja/final_project/scripts/run_R421.sh
+SCRIPT_PATH=/scratch/caldwell.ja/final_project/src/BINF6430_Final/scripts/jacque
 
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/sva_mouse.R matched aswritten
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/sva_mouse.R matched standard
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/sva_mouse.R allGEO aswritten
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/sva_mouse.R allGEO standard
+source $SCRIPT_PATH/run_R421.sh
+
+rscript_r421 $SCRIPT_PATH/sva_mouse.R matched
+rscript_r421 $SCRIPT_PATH/sva_mouse.R allGEO

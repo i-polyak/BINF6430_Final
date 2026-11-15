@@ -16,7 +16,7 @@ cat("Authors' samples matched to an SRR:", nrow(j), "\n")
 cat("Authors' samples with no SRR:", paste(setdiff(auth$library, j$library), collapse = ", "), "\n\n")
 
 # correlate with our SV1
-for (v in c("matched_standard", "allGEO_standard")) {
+for (v in c("matched", "allGEO")) {
   ours <- read.delim(file.path(proj, "results", paste0("sampleTable_SVs_", v, ".txt")))
   x <- merge(j[, c("SRR", "condition", "SV1")], ours[, c("sample", "condition", "SV1")],
              by.x = "SRR", by.y = "sample", suffixes = c(".authors", ".ours"))
@@ -27,12 +27,12 @@ for (v in c("matched_standard", "allGEO_standard")) {
 }
 
 # new SV table: matched 30 samples, authors' SV1
-base <- read.delim(file.path(proj, "results", "sampleTable_SVs_matched_standard.txt"))
+base <- read.delim(file.path(proj, "results", "sampleTable_SVs_matched.txt"))
 base <- base[, c("sample", "condition", "region", "batch", "animal", "in_authors_analysis")]
 base$SV1 <- j$SV1[match(base$sample, j$SRR)]
 stopifnot(!any(is.na(base$SV1)))
 
-out <- file.path(proj, "results", "sampleTable_SVs_authorsSV1_standard.txt")
+out <- file.path(proj, "results", "sampleTable_SVs_authorsSV1.txt")
 write.table(base, out, sep = "\t", quote = FALSE, row.names = FALSE)
 cat("\nWrote:", out, "with", nrow(base), "samples\n")
 

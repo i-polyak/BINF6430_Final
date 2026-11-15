@@ -10,11 +10,14 @@
 
 conda deactivate 2>/dev/null || true
 
-source /scratch/caldwell.ja/final_project/scripts/run_R421.sh
+SCRIPT_PATH=/scratch/caldwell.ja/final_project/src/BINF6430_Final/scripts/jacque
 
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R matched sv1
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R matched none
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R matched batch
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R allGEO sv1
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R allGEO none
-rscript_r421 /scratch/caldwell.ja/final_project/scripts/deseq2_mouse.R allGEO batch
+source $SCRIPT_PATH/run_R421.sh
+
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R matched sv1
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R matched none
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R matched batch
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R allGEO sv1
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R allGEO none
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R allGEO batch
+rscript_r421 $SCRIPT_PATH/deseq2_mouse.R authorsSV1 sv1

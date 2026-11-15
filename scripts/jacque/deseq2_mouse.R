@@ -11,7 +11,7 @@ dir.create(outdir, recursive = TRUE, showWarnings = FALSE)
 txi        <- readRDS(file.path(proj, "results/txi.rds"))
 gene_annot <- readRDS(file.path(proj, "results/gene_annot_M30.rds"))
 coldata    <- read.delim(file.path(proj, "results",
-                         paste0("sampleTable_SVs_", set_name, "_standard.txt")))
+                         paste0("sampleTable_SVs_", set_name, ".txt")))
 rownames(coldata)  <- coldata$sample
 coldata$condition  <- factor(coldata$condition)
 coldata$batch      <- factor(coldata$batch)
