@@ -1,0 +1,7 @@
+contrast	ours	paper_padj	shared_padj	paper_yes	shared_yes	genes_shared	baseMean_spearman	LFC_spearman	LFC_pearson_bm10	stat_spearman	stat_pearson
+PH_14dOVX_vs_intact	17	26	4	13	3	42118	0.999	0.66	0.576	0.619	0.624
+PH_4mOVX_vs_intact	57	101	33	82	33	42118	0.999	0.773	0.587	0.827	0.787
+POA_14dOVX_vs_intact	24	27	12	14	9	42118	0.999	0.844	0.468	0.87	0.828
+POA_4mOVX_vs_intact	44	77	19	70	18	42118	0.999	0.807	0.543	0.836	0.805
+PH_4mOVX_vs_14dOVX	23	43	13	35	13	42118	0.999	0.854	0.558	0.794	0.779
+POA_4mOVX_vs_14dOVX	30	26	10	15	8	42118	0.999	0.832	0.592	0.779	0.751
