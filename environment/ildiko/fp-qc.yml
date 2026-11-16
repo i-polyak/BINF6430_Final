@@ -1,0 +1,7 @@
+name: fp-qc
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - fastqc=0.12.1
+  - multiqc

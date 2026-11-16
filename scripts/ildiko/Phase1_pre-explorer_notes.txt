@@ -1,0 +1,76 @@
+Go to NCBI GEO website for GSE288245
+https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE288245
+Go to SRA Run Selector at bottom of page
+
+On the Run Selector page you should see a “Select” box near the top with a Download row containing two buttons, Metadata and Accession List.
+
+Click Metadata. It downloads a file called SraRunTable.csv (sometimes .txt). That’s the full table, with each run’s SRR ID, GSM, library name, and other details.
+Click Accession List. It downloads SRR_Acc_List.txt, a plain list of the 33 SRR IDs. You’ll use it later to download the data.
+Save both on your computer for now. Once your folder structure exists, they’ll go into it on Explorer.
+
+ `SraRunTable.csv` Table shows:
+1. The library names aren’t here.
+2. GEO/SRA has its own batch column, and it doesn’t match the authors’ key.
+3. There’s a typo in the metadata.
+4. The download size is about 58 GB.
+5. The SRR numbers run in reverse.
+
+Next step: get all 33 library names in one file. GEO offers a single file with every sample page’s text combined
+Go back to the GSE288245 page.
+Near the bottom, find “Download family” and click SOFT formatted family file(s).
+That downloads GSE288245_family.soft.gz. Upload it here; you don’t need to unzip it.
+
+This file resolves the label conflict, and the answer is more significant than a labeling error. The 33 samples on GEO are not the same 33 samples the authors analyzed.
+
+This explains the 4/6 versus 5/5 split.
+
+GEO’s PH intact group (4): it is missing 2763 and 2776 from the analysis set and includes L534_1 instead.
+GEO’s PH 14d group (6): it includes L534_5, which the authors didn’t analyze.
+POA intact (5 in both): the count matches, but the samples differ. GEO has L534_10 in place of 2763’s POA sample.
+
+It also confirms what we inferred from the gaps in the numbering. The three batch B libraries missing from the sample key (L534_1, L534_5, L534_10) do exist, and their groups on GEO are what the numbering pattern predicted. The authors excluded them from the analysis without saying so.
+
+Two more observations:
+
+The SOFT file confirms the stranded KAPA kit, but it still doesn’t name a kallisto version.
+The metadata typo on GSM8761913 (“14” instead of “14 days post-OVX”) is confirmed. That sample is L16_5457_S15, POA 14d.
+What this means for the project
+
+Starting from GEO, nobody can rerun the authors’ exact 33-sample analysis, because 3 of their samples were never deposited. The animals behind the GEO-only libraries are also unknown, since they aren’t in the sample key.
+
+
+In our repo:
+create /metadata folder and add in .tsv files from earlier
+Expand .gitignore for data, index, R, and SLURM files
+# Editor / OS clutter
+.idea/
+.vscode/
+.DS_Store
+
+# R session files
+.Rhistory
+.RData
+.Rproj.user/
+
+# Raw and reference data (huge; re-downloadable)
+*.sra
+*.fastq
+*.fastq.gz
+*.fq
+*.fq.gz
+*.fa
+*.fa.gz
+*.fasta
+*.gtf
+*.gtf.gz
+
+# kallisto index (large binary)
+*.idx
+
+# Keep the data folder, but ignore everything in it except its README
+data/*
+!data/README.md
+
+# SLURM log files
+slurm-*.out
+slurm-*.err

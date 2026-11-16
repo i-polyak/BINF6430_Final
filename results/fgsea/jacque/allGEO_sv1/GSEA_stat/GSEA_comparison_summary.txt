@@ -1,0 +1,7 @@
+contrast	NES_spearman	same_sign_pct	sig_ours	sig_paper	sig_both
+PH_14dOVX_vs_intact	0.598	60	4	4	3
+PH_4mOVX_vs_14dOVX	0.814	88	23	19	13
+PH_4mOVX_vs_intact	0.956	92	26	25	23
+POA_14dOVX_vs_intact	0.655	72	5	10	5
+POA_4mOVX_vs_14dOVX	0.697	78	8	4	3
+POA_4mOVX_vs_intact	0.851	82	17	16	12

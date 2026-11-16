@@ -1,0 +1,8 @@
+Authors' samples: 33 
+Authors' samples matched to an SRR: 30 
+Authors' samples with no SRR: L16_5443_S1, L16_5452_S10, L534_3_S3 
+
+matched           shared: 30 | condition labels agree: 30 | Pearson r: 0.941 | Spearman: 0.897
+allGEO            shared: 30 | condition labels agree: 30 | Pearson r: -0.909 | Spearman: -0.871
+
+Wrote: /scratch/caldwell.ja/final_project/results/sampleTable_SVs_authorsSV1.txt with 30 samples

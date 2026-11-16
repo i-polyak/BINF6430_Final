@@ -1,0 +1,5 @@
+comparison	ours_genes	theirs_genes	shared_genes	stat_cor	lfc_spearman	ours_DEG	theirs_DEG	DEG_overlap	pc_type_disagree
+PH_14d	42166	42824	42119	0.67	0.671	19	13	2	128
+PH_4m	42166	42824	42119	0.832	0.781	56	82	34	128
+POA_14d	42166	42824	42119	0.873	0.865	30	14	9	128
+POA_4m	42166	42824	42119	0.882	0.872	55	70	34	128

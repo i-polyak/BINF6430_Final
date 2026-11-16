@@ -30,3 +30,11 @@ data/*
 # SLURM log files
 slurm-*.out
 slurm-*.err
+
+# kallisto quant outputs: keep run_info.json, ignore the large abundance files
+abundance.h5
+abundance.tsv
+
+# Ildiko's SLURM logs: ignore all, except the index build log
+logs/ildiko/*.out
+!logs/ildiko/kallisto_index_*.out

@@ -1,0 +1,990 @@
+fgsea stands for fast Gene Set Enrichment Analysis.
+
+GSEA (Gene Set Enrichment Analysis) is the method, introduced by Subramanian et al. in 2005.
+The “f” (fast) is because fgsea is a faster implementation of it, written as an R package by Korotkevich and colleagues. It’s reference 21 in the paper: “Fast gene set enrichment analysis.”
+
+Speed matters because GSEA measures significance by shuffling the data many times to see what scores you’d get by chance. The original GSEA software did this slowly. fgsea uses a shortcut that reuses calculations between shuffles, which makes it practical to test many gene sets across several comparisons in seconds.
+
+Download authors' GeneSetEnrichmentAnalysis.RMD file
+https://github.com/jcbloom/hypo_menopauseNavarro/tree/main/Gene%20Set%20Enrichment%20Analysis
+
+What the authors did													What it means for us
+Gene sets: mh.all.v2023.1.Mm.symbols.gmt, the mouse Hallmark file from MSigDB release 2023.1, uploaded to their repo	We’ll use their file, not msigdbr 7.5.1. It’s a newer release, built for mouse directly rather than translated from 															human genes. Using their exact file removes one source of difference
+Ranking: protein-coding genes only, ranked by log2FoldChange, high to low, using gene names				Simple to match. Our DE tables already have the gene name, type, and log2FC columns
+fgsea settings: eps = 0, minSize = 15, maxSize = 500									We copy these exactly
+No random seed set													fgsea uses random shuffling, so their exact numbers can’t be reproduced, even by them. We’ll set a seed so ours can 															be. A small, documented addition
+Heatmap: made with ComplexHeatmap (not installed for us)								We’ll use pheatmap, which you already have. The plot looks different, but the numbers are the same
+
+Two points for the report’s critique:
+Ranking by raw log2FoldChange is a debatable choice. Genes with very few reads can show huge fold changes just by chance, and they’d land at the top or bottom of the ranking. A ranking that accounts for uncertainty (DESeq2’s stat column) is more common. We’ll follow the authors but note it.
+The script is written for the human data. Line 54 points to the human gene set file, and the comments say to switch it for mouse. So the mouse run used an edited version that isn’t in the repo. A small documentation gap.
+
+
+What msigdbr is, and why we’d switch
+Gene set analysis needs a list of pathways, with the genes in each one. Those lists come from a database called MSigDB, which releases updated versions over time.
+There are two ways to get those lists into R:
+				msigdbr 7.5.1								The authors’ .gmt file
+What it is			An R package we installed this morning that contains MSigDB’s lists	A text file downloaded from MSigDB’s website, one pathway per line
+MSigDB release			7.5.1 (early 2022)							2023.1
+How the mouse lists were made	Translated from the human lists						Built for mouse directly
+
+I installed msigdbr this morning before we had seen their script, as a reasonable guess. Now we know exactly which file they used. Between releases, genes get added to or removed from pathways, so using a different list could change the results by itself. Using their exact file means any difference we find comes from the data, not the gene lists.
+
+Remove the incorrect file downloaded this morning
+Step 1: Remove msigdbr.  babelgene came in only as a helper for msigdbr, so it goes too:
+remove.packages(c("msigdbr", "babelgene"))
+c("msigdbr", "babelgene") %in% rownames(installed.packages())
+
+Step 2: Install ComplexHeatmap
+BiocManager::install("ComplexHeatmap", update = FALSE)
+packageVersion("ComplexHeatmap"); packageVersion("circlize")
+
+Note: Installed ComplexHeatmap 2.12.1 (Bioc 3.15) and circlize 0.4.16, plus helpers shape, iterators, GetoptLong, clue, GlobalOptions, foreach, doParallel.
+
+download mh.all.v2023.1.Mm.symbols.gmt from their repo into Phase3\inputs.
+
+Download the mouse gene set file
+https://github.com/jcbloom/hypo_menopauseNavarro/tree/main/Gene%20Set%20Enrichment%20Analysis
+Download mh.all.v2023.1.Mm.symbols.gmt
+
+For the three of us to match, everyone has to use the same seed number. I’ve put 6430 (the course number) in the code below, but any number works as long as the group agrees on it. Change it if prefer another, and add it to Friday’s list.
+
+I set the seed right before each comparison’s fgsea run. That way each comparison’s result doesn’t depend on what ran before it, so a teammate who runs only one comparison still gets the same numbers.
+
+Run fgsea
+This reads saved DE tables, so it works even after an R restart. Everything else follows the authors’ script line for line:
+
+library(fgsea)
+
+phase3 <- "C:/Users/ipoly/OneDrive/Desktop/BINF6430_Trans/Final Project/Phase3"
+inputs <- file.path(phase3, "inputs")
+outdir <- file.path(phase3, "DESeq2_results")
+
+pathways <- gmtPathways(file.path(inputs, "mh.all.v2023.1.Mm.symbols.gmt"))
+length(pathways)
+
+comparisons <- c("PH_14d", "PH_4m", "POA_14d", "POA_4m")
+
+gsea_list <- lapply(comparisons, function(n) {
+  de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  de <- de[de$gene_type == "protein_coding", ]
+  de <- de[order(de$log2FoldChange, decreasing = TRUE), ]
+  de <- de[!is.na(de$log2FoldChange), ]
+  ranks <- setNames(de$log2FoldChange, de$gene_name)
+  set.seed(6430)
+  res <- fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+  res$comparison <- n
+  res
+})
+names(gsea_list) <- comparisons
+
+sapply(gsea_list, nrow)
+sapply(gsea_list, function(r) sum(r$padj < 0.05))
+
+
+Zero significant pathways in all four comparisons. That’s a real mismatch: the paper’s Fig. 1D shows many significant pathways, especially at 4 months. Before changing anything, we need to see what’s going on. The 17 warnings are the first clue.
+
+warnings()
+
+sapply(gsea_list, function(r) signif(min(r$padj), 2))
+
+key <- c("HALLMARK_TNFA_SIGNALING_VIA_NFKB", "HALLMARK_INTERFERON_ALPHA_RESPONSE",
+         "HALLMARK_INTERFERON_GAMMA_RESPONSE", "HALLMARK_IL6_JAK_STAT3_SIGNALING",
+         "HALLMARK_COMPLEMENT", "HALLMARK_ESTROGEN_RESPONSE_EARLY", "HALLMARK_ESTROGEN_RESPONSE_LATE")
+nes  <- sapply(gsea_list, function(r) round(r$NES[match(key, r$pathway)], 2))
+padj <- sapply(gsea_list, function(r) signif(r$padj[match(key, r$pathway)], 2))
+rownames(nes) <- rownames(padj) <- sub("HALLMARK_", "", key)
+nes
+padj
+
+
+The direction mostly reproduces, but the significance doesn’t.
+Direction vs. the paper’s Fig. 1D
+
+Pathway			Ours							Paper
+Interferon α and γ	Positive in all 4 comparisons (NES 1.2–1.7)		Positive, strongest at 4 months ✅
+TNF-α and IL6		Positive in PH 14d, PH 4m, POA 4m. Negative in POA 14d	Positive at 4 months. POA 14d is weak or negative in the paper too ✅
+Estrogen response	Negative in both POA comparisons, positive in PH	Depleted in POA, the paper’s point. PH 4m is positive in the paper too ✅
+Complement		Positive in PH, negative in POA 4m			Positive at PH 4m ✅. POA 4m differs
+
+Significance: none. The smallest padj values are 0.10–0.14 (POA 14d, PH 4m), and the 4-month comparisons, where the paper’s signal is strongest, reach only 0.14 and 0.81.
+
+The warnings aren’t the cause:
+Ties and duplicate names affect only about 0.2–0.3% of genes. The authors would have had the same.
+'package:stats' may not be available when loading is a Windows quirk in how fgsea runs in parallel. It’s harmless.
+
+What could explain it (not yet tested):
+Ranking by raw log2FoldChange. Low-count genes can have huge, noisy fold changes and crowd the top and bottom of the ranking, which weakens real pathway signals. With only 3 PH controls, our fold changes are noisier than the authors’.
+The missing controls again, since they make every fold change less precise.
+Something we can’t see in the authors’ input. Their script reads “Supplemental Table S2,” not their DESeq2 output directly. If that table was filtered (for example, to well-expressed genes), their ranking would be cleaner than ours.
+
+
+Let's try to figure out whats going on.
+A. Diagnostic: what’s at the extremes of the ranking?
+This looks only at the existing ranking; nothing is rerun. It shows the 20 most-up and 20 most-down protein-coding genes for PH 4m, with their average read count (baseMean), then summarizes all 4 comparisons:
+de_pc <- function(n) {
+  de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  de <- de[de$gene_type == "protein_coding" & !is.na(de$log2FoldChange), ]
+  de[order(de$log2FoldChange, decreasing = TRUE), ]
+}
+
+x <- de_pc("PH_4m")
+cols <- c("gene_name", "baseMean", "log2FoldChange", "padj")
+head(x[, cols], 20)
+tail(x[, cols], 20)
+
+sapply(comparisons, function(n) {
+  x <- de_pc(n)
+  ext <- c(head(x$baseMean, 100), tail(x$baseMean, 100))
+  round(c(median_baseMean_top_bottom_100 = median(ext),
+          median_baseMean_all            = median(x$baseMean),
+          pct_top_bottom_100_below_10    = mean(ext < 10) * 100), 1)
+})
+
+
+low-count noise dominates the ranking.
+				All protein-coding genes	The 200 most extreme genes
+Median read count (baseMean)	520.8				0.9–1.5
+Share below 10 reads		—				92–95%
+
+
+The genes at the very top and bottom are mostly near-zero-count genes (olfactory receptors like Olfr1110, pseudogenes, Gm genes) with absurd fold changes of ±15 to ±30. A fold change of 30 on a gene averaging 0.3 reads means, in practice, “a few reads in one group and none in the other.” Ranking by raw log2FoldChange puts these noise genes in the most influential positions for GSEA and pushes the real signals toward the middle. That explains why the directions are right but nothing is significant. And that’s a central point for the critique.
+
+A side finding worth noting: some of these near-zero genes are even called significant by DESeq2. For example, Mmp27 has a baseMean of 0.35 and padj 1.8 × 10⁻¹⁰. That pattern usually means reads in only one or two samples. Some of our 75–140 “all gene type” DEGs may be artifacts like this, which is relevant to the DEG count comparison too.
+
+Note:  Diagnostic: ranking by raw log2FC is dominated by near-zero-count genes. 92-95% of the top and bottom 100 ranked protein-coding genes have baseMean < 10 (median 0.9-1.5 vs 520.8 for all genes), with log2FC of +/-15 to 30 (Olfr, Vmn2r, Gm, pseudogenes). Explains correct direction but no significance.
+2026-11-12 Some near-zero genes are called significant by DESeq2 (e.g., Mmp27 baseMean 0.35, padj 1.8e-10), likely reads in one or two samples. May inflate DEG counts.
+
+B. Sensitivity check: rank by DESeq2’s stat
+stat is the fold change divided by its uncertainty, so near-zero genes with huge but unreliable fold changes get small values and drop toward the middle. Everything else stays identical to the authors’ setup (protein-coding only, the same gene sets, eps, minSize, maxSize, and seed). This is kept alongside the authors’ version as a separate object, gsea_stat, not replacing it:
+
+gsea_stat <- lapply(comparisons, function(n) {
+  de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  de <- de[de$gene_type == "protein_coding" & !is.na(de$stat), ]
+  de <- de[order(de$stat, decreasing = TRUE), ]
+  ranks <- setNames(de$stat, de$gene_name)
+  set.seed(6430)
+  res <- fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+  res$comparison <- n
+  res
+})
+names(gsea_stat) <- comparisons
+
+sapply(gsea_stat, function(r) sum(r$padj < 0.05))
+sapply(gsea_stat, function(r) signif(min(r$padj), 2))
+
+nes_stat  <- sapply(gsea_stat, function(r) round(r$NES[match(key, r$pathway)], 2))
+padj_stat <- sapply(gsea_stat, function(r) signif(r$padj[match(key, r$pathway)], 2))
+rownames(nes_stat) <- rownames(padj_stat) <- sub("HALLMARK_", "", key)
+nes_stat
+padj_stat
+
+
+Ranking by stat changes the picture completely:
+								Authors’ ranking (raw log2FC)	Sensitivity ranking (stat)
+Significant pathways (PH 14d / PH 4m / POA 14d / POA 4m)	0 / 0 / 0 / 0			13 / 31 / 10 / 20
+Smallest padj							0.10–0.83			10⁻⁵ to 10⁻¹²
+
+Key pathways under stat ranking:
+Interferon α and γ: strongly positive and significant in all 4 (padj down to 10⁻¹²). The paper’s strongest signal.
+TNF-α via NF-κB: positive and significant in PH 14d, PH 4m, and POA 4m, strongest at PH 4m (NES 2.02, padj 1.7 × 10⁻⁷), matching the paper’s emphasis on 4 months in PH. POA 14d is significantly negative, which the paper doesn’t show as significant.
+IL6/JAK/STAT3 and complement: positive, significant at 4 months in both regions.
+Estrogen response: negative in both POA comparisons, as in the paper, but not significant here (padj 0.09–0.25). The paper marks POA 4m estrogen early as significant.
+
+What this means: with the noise genes pushed to the middle, the paper’s main pathway story reproduces strongly: inflammatory pathways enriched, most strongly at 4 months. So the biology seems real, and the authors’ ranking method, as written in their script, is what fails on our data.
+
+There’s a puzzle, though. Counting asterisks in the paper’s Fig. 1D (roughly, reading the figure), they report fewer significant pathways than our stat run, but far more than our raw-log2FC run. Their results sit between our two versions. One explanation that would fit: their input file (Supplemental Table S2) may have been filtered before ranking, for example dropping genes DESeq2 flagged as too low-count to test (padj = NA). That would remove most noise genes while still ranking by log2FC.
+
+Note: Sensitivity fgsea ranked by DESeq2 stat (all else identical, seed 6430): significant pathways PH 14d 13, PH 4m 31, POA 14d 10, POA 4m 20 (vs 0/0/0/0 with authors' log2FC ranking). Min padj 5.9e-05 to 1.1e-12.
+2026-11-12 Under stat ranking: IFN alpha/gamma positive and significant in all 4; TNFa positive and significant in PH 14d, PH 4m (NES 2.02, padj 1.7e-07), POA 4m, and significantly negative in POA 14d; IL6 and complement significant at 4m; estrogen response negative in POA but not significant.
+2026-11-12 Paper's Fig 1D significance falls between our two rankings. Hypothesis: authors' input (Supp Table S2) was filtered before ranking (e.g., genes with padj NA removed). Untested.
+
+Test: the authors’ log2FC ranking, using only the genes DESeq2 tested
+Identical to the authors’ version, with one added filter: keep only genes with a padj value. DESeq2 sets padj to NA for genes it judged too low-count to test reliably (its “independent filtering”). This is saved as a separate object, gsea_filt:
+
+gsea_filt <- lapply(comparisons, function(n) {
+  de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  de <- de[de$gene_type == "protein_coding" & !is.na(de$padj), ]
+  de <- de[order(de$log2FoldChange, decreasing = TRUE), ]
+  ranks <- setNames(de$log2FoldChange, de$gene_name)
+  set.seed(6430)
+  res <- fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+  res$comparison <- n
+  res
+})
+names(gsea_filt) <- comparisons
+
+sapply(comparisons, function(n) {
+  de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  pc <- de[de$gene_type == "protein_coding", ]
+  c(ranked_authors = sum(!is.na(pc$log2FoldChange)), ranked_filtered = sum(!is.na(pc$padj)))
+})
+
+sapply(gsea_filt, function(r) sum(r$padj < 0.05))
+sapply(gsea_filt, function(r) signif(min(r$padj), 2))
+
+nes_filt  <- sapply(gsea_filt, function(r) round(r$NES[match(key, r$pathway)], 2))
+padj_filt <- sapply(gsea_filt, function(r) signif(r$padj[match(key, r$pathway)], 2))
+rownames(nes_filt) <- rownames(padj_filt) <- sub("HALLMARK_", "", key)
+nes_filt
+padj_filt
+
+
+This test turned out to be inconclusive, because the filter removed nothing. All 20,068 protein-coding genes have a padj value, so the “filtered” run was identical to the authors’ run. The results match number for number.
+
+Why: DESeq2’s independent filtering tries several low-count cutoffs and picks the one that gives the most discoveries. For our data, it picked no cutoff, so every gene was tested and none got padj = NA. You can see this in the diagnostic above: near-zero genes like Mmp27 (baseMean 0.35) and Olfr1331 had real padj values. I should have checked the number of NA padj values before suggesting this test. It would have shown in seconds that the filter wouldn’t do anything.
+
+So the hypothesis, that the authors’ input table was filtered, is still untested, not ruled out.
+
+Test filtering with a read-count cutoff: rank by log2FC, using only genes above a minimum baseMean. The catch is that any cutoff (e.g., 10) would be our choice, not something in the authors’ code or paper. We’d be guessing at what they might have done, so the result would be suggestive, not evidence.
+
+run several cutoffs side by side. If the results change sharply between cutoffs, the filtering matters a lot. If they settle down above some level, that tells us something too.
+
+The cutoffs below are my suggestion, not from the authors. 
+baseMean ≥ 1: removes only genes that are essentially zero
+≥ 5 and ≥ 10: common rule-of-thumb levels for “too few reads to trust”
+≥ 20: a stricter level
+
+Everything else is the authors’ setup (protein-coding, raw log2FC ranking, their gene sets, and settings), plus seed 6430:
+
+cutoffs <- c(1, 5, 10, 20)
+
+gsea_cut <- lapply(cutoffs, function(cut) {
+  res_by_comp <- lapply(comparisons, function(n) {
+    de <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+    de <- de[de$gene_type == "protein_coding" & !is.na(de$log2FoldChange) & de$baseMean >= cut, ]
+    de <- de[order(de$log2FoldChange, decreasing = TRUE), ]
+    ranks <- setNames(de$log2FoldChange, de$gene_name)
+    set.seed(6430)
+    res <- fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+    res$comparison <- n
+    res$n_ranked <- length(ranks)
+    res
+  })
+  names(res_by_comp) <- comparisons
+  res_by_comp
+})
+names(gsea_cut) <- paste0("baseMean_ge_", cutoffs)
+
+t(sapply(gsea_cut, function(x) sapply(x, function(r) r$n_ranked[1])))
+t(sapply(gsea_cut, function(x) sapply(x, function(r) sum(r$padj < 0.05))))
+
+
+Filtering barely helps. Even removing up to 4,768 low-count genes (baseMean ≥ 20), the authors’ log2FC ranking finds at most 4 significant pathways in any comparison:
+Ranking					Genes ranked	Significant (PH 14d / PH 4m / POA 14d / POA 4m)
+Authors’ (raw log2FC, all genes)	20,068		0 / 0 / 0 / 0
+log2FC, baseMean ≥ 1			18,398		0 / 3 / 0 / 1
+log2FC, baseMean ≥ 5			16,909		0 / 2 / 0 / 0
+log2FC, baseMean ≥ 10			16,139		0 / 4 / 0 / 0
+log2FC, baseMean ≥ 20			15,300		0 / 4 / 2 / 2
+stat (all genes)			20,068		13 / 31 / 10 / 20
+
+What this tells us:
+A simple read-count filter doesn’t explain the gap. Even with every gene under 20 reads removed, raw log2FC ranking stays weak. So the problem isn’t only near-zero genes. Fold changes for moderately expressed genes are still noisy enough to blur the pathways, and stat handles that because it accounts for each gene’s uncertainty.
+The filtering hypothesis is now less likely, at least in this simple form. We still can’t rule out something else in their Supplemental Table S2 without seeing it.
+Missing controls rises as an explanation. Fold changes measured against 3 PH controls (vs. their 5) are noisier, which hurts raw-log2FC ranking most. That’s exactly what C tests.
+
+save the fgsea results already in memory into fgsea_results folder as three files:
+GSEA_hallmark_log2FC.tsv: the authors’ method
+GSEA_hallmark_stat.tsv: the stat sensitivity check
+GSEA_summary.tsv: the significant-pathway counts for every version
+
+fdir <- file.path(phase3, "fgsea_results")
+
+to_table <- function(lst) {
+  tab <- data.table::rbindlist(lst)
+  tab$leadingEdge <- sapply(tab$leadingEdge, paste, collapse = ",")
+  data.table::setcolorder(tab, c("comparison", "pathway"))
+  tab
+}
+
+data.table::fwrite(to_table(gsea_list), file.path(fdir, "GSEA_hallmark_log2FC.tsv"), sep = "\t")
+data.table::fwrite(to_table(gsea_stat), file.path(fdir, "GSEA_hallmark_stat.tsv"),   sep = "\t")
+
+sig <- function(lst) sapply(lst, function(r) sum(r$padj < 0.05))
+gsea_summary <- rbind(
+  log2FC_all = sig(gsea_list),
+  stat_all   = sig(gsea_stat),
+  t(sapply(gsea_cut, sig))
+)
+rownames(gsea_summary)[3:6] <- paste0("log2FC_", rownames(gsea_summary)[3:6])
+gsea_summary
+
+write.table(data.frame(ranking = rownames(gsea_summary), gsea_summary),
+            file.path(fdir, "GSEA_summary.tsv"), sep = "\t", quote = FALSE, row.names = FALSE)
+
+list.files(fdir)
+
+
+Heatmaps
+1. The color scale. Their code sets colors at NES 0 = blue, 1.25 = white, 2.5 = red. But their published Fig. 1D legend runs −4 (blue) to 0 (white) to +4 (red). So the code in the repo doesn’t match the published figure. The script is also labeled for the human heatmap (“HeatmapHuman”), so the mouse figure was likely made with an edited version that isn’t shared.
+Match the published legend (−4 / 0 / +4)	Comparable by eye to Fig. 1D. A documented difference from their repo code
+
+2. Which pathways to show. Fig. 1D shows 26 of the 50 Hallmark pathways (Adipogenesis through Xenobiotic Metabolism). The paper doesn’t say how those were chosen.
+The same 26 as Fig. 1D	Direct side-by-side comparison with the paper
+
+Everything else follows their code: rows are pathways and columns are comparisons, asterisks mark padj < 0.05 / 0.01 / 0.001, missing values are set to NES 0 and padj 0.99, and the output is a PDF.
+
+library(ComplexHeatmap)
+library(circlize)
+
+fig1d <- c("HALLMARK_ADIPOGENESIS", "HALLMARK_ALLOGRAFT_REJECTION", "HALLMARK_ANGIOGENESIS",
+           "HALLMARK_APOPTOSIS", "HALLMARK_CHOLESTEROL_HOMEOSTASIS", "HALLMARK_COAGULATION",
+           "HALLMARK_COMPLEMENT", "HALLMARK_EPITHELIAL_MESENCHYMAL_TRANSITION",
+           "HALLMARK_ESTROGEN_RESPONSE_EARLY", "HALLMARK_ESTROGEN_RESPONSE_LATE",
+           "HALLMARK_FATTY_ACID_METABOLISM", "HALLMARK_GLYCOLYSIS", "HALLMARK_HYPOXIA",
+           "HALLMARK_IL2_STAT5_SIGNALING", "HALLMARK_IL6_JAK_STAT3_SIGNALING",
+           "HALLMARK_INFLAMMATORY_RESPONSE", "HALLMARK_INTERFERON_ALPHA_RESPONSE",
+           "HALLMARK_INTERFERON_GAMMA_RESPONSE", "HALLMARK_KRAS_SIGNALING_UP",
+           "HALLMARK_MTORC1_SIGNALING", "HALLMARK_MYOGENESIS", "HALLMARK_P53_PATHWAY",
+           "HALLMARK_TGF_BETA_SIGNALING", "HALLMARK_TNFA_SIGNALING_VIA_NFKB",
+           "HALLMARK_UV_RESPONSE_UP", "HALLMARK_XENOBIOTIC_METABOLISM")
+stopifnot(length(fig1d) == 26, all(fig1d %in% names(pathways)))
+
+make_mats <- function(lst) {
+  nes  <- sapply(lst, function(r) r$NES[match(fig1d, r$pathway)])
+  padj <- sapply(lst, function(r) r$padj[match(fig1d, r$pathway)])
+  nes[is.na(nes)]   <- 0
+  padj[is.na(padj)] <- 0.99
+  rownames(nes) <- rownames(padj) <- gsub("_", " ", sub("HALLMARK_", "", fig1d))
+  colnames(nes) <- colnames(padj) <- c("PH 14d", "PH 4m", "POA 14d", "POA 4m")
+  list(nes = nes, padj = padj)
+}
+
+col_fun <- colorRamp2(c(-4, 0, 4), c("blue", "white", "red"))
+
+draw_hm <- function(m, title, file) {
+  ht <- Heatmap(m$nes, name = "NES", column_title = title, col = col_fun,
+                column_names_rot = 45, cluster_rows = FALSE, cluster_columns = FALSE,
+                row_names_gp = gpar(fontsize = 10), column_names_gp = gpar(fontsize = 10),
+                cell_fun = function(j, i, x, y, w, h, fill) {
+                  p <- m$padj[i, j]
+                  if (p < 0.001)      grid.text("***", x, y, gp = gpar(fontsize = 10))
+                  else if (p < 0.01)  grid.text("**",  x, y, gp = gpar(fontsize = 10))
+                  else if (p < 0.05)  grid.text("*",   x, y, gp = gpar(fontsize = 10))
+                })
+  pdf(file)
+  draw(ht)
+  dev.off()
+  draw(ht)
+}
+
+draw_hm(make_mats(gsea_list), "Hallmark Pathways: log2FC ranking (authors' method)",
+        file.path(fdir, "Heatmap_GSEA_hallmark_log2FC.pdf"))
+draw_hm(make_mats(gsea_stat), "Hallmark Pathways: stat ranking (sensitivity)",
+        file.path(fdir, "Heatmap_GSEA_hallmark_stat.pdf"))
+
+list.files(fdir)
+
+
+Authors’ method (log2FC ranking): pale colors and no asterisks anywhere. The directions mostly follow the paper (interferon and TNF-α red, estrogen response blue in POA), but nothing reaches significance. This is the faithful reproduction, and it does not reproduce Fig. 1D’s significance.
+
+Sensitivity (stat ranking): this one looks strikingly like Fig. 1D, especially PH 4m, the paper’s headline column:
+		Paper’s significant 
+Comparison	pathways (approximate)	Also significant in ours, same direction
+PH 4m		about 17		about 14, including interferon α/γ, TNF-α, IL6, IL2, complement, hypoxia, estrogen response early (red, as in the paper), and cholesterol, fatty acid, and mTORC1 (blue, as in the paper)
+POA 4m		about 10		about 6 (allograft, hypoxia, IL2, IL6, interferon α, adipogenesis down)
+POA 14d		about 6			about 2 (allograft, interferon α). The other 4 point the same way but aren’t significant
+PH 14d		about 3			0 of theirs, though ours has other significant pathways (interferon, hypoxia, IL6)
+
+The misses are adipogenesis, angiogenesis, and apoptosis at 4 months. Estrogen response in POA points the right way but isn’t significant in ours.
+
+What this means for the report: the paper’s biology reproduces well at 4 months, but only when ranking by stat. Their published code, which ranks by raw log2FC, doesn’t produce their published figure from our data. Either their input differed in some way we can’t see (Supplemental Table S2, the 3 missing controls), or the code in the repo isn’t exactly what made Fig. 1D. It’s a reproducibility finding either way, and the strongest one so far.
+
+
+Download all the supplemental tables from the paper
+https://insight.jci.org/articles/view/207270#sd
+
+1. The paper’s DEG counts come from a hidden filter. S2 has a significant column, and counting protein-coding genes marked “yes” gives exactly the paper’s 13 / 82 / 14 / 70. But in their own table, protein-coding genes with padj < 0.05 number 26 / 101 / 27 / 77. So “significant” means padj < 0.05 plus some extra rule that the paper never states. Every gene they dropped has a very low read count (baseMean under 3), but some genes they kept are just as low, so it isn’t a simple cutoff.
+
+2. Their GSEA input has the same noise as ours. In S2, 94% of the top and bottom 100 protein-coding genes by log2FC have baseMean under 10, with fold changes of ±20–44, essentially identical to our diagnostic. So the filtering explanation is ruled out: their ranking was just as noisy. Yet S1, their GSEA results, shows 4 / 25 / 10 / 16 significant pathways. That raises the question of whether their code on their own S2 actually produces S1. We can test that in R.
+
+3. The published analysis used the 33 GEO samples, not the 33 in their GitHub files. S3 (normalized counts) lists every sample by library name:
+
+				Libraries
+In S3 (the published analysis)	All 33 GEO libraries, including L534_1_S1, L534_5_S5, and L534_10_S10
+Missing from S3			L16_5443_S1, L16_5452_S10, and L534_3_S3, which are the 3 that appear only in their GitHub samplekey.txt and sampleTable_SVs.txt
+
+S3’s group labels also match GEO exactly (PH intact 4, PH 14d 6, POA intact 5). So GEO is right, and their GitHub sample files don’t match their published analysis. This reverses the conflict flagged in your proposal: the GitHub code is the odd one out, not GEO.
+
+What this means for our analysis: our 30-sample run, built on their GitHub files, was a reasonable choice given those files, but it isn’t the published analysis. The 33-sample run (C) becomes the primary reproduction, not a sensitivity check. The catch is that the authors never published SV1 values for those 33 samples, so SV1 has to be recomputed with smartSVA, as their methods describe.
+
+
+Step 2a: Install readxl
+install.packages("readxl")
+packageVersion("readxl")
+
+Step 2b: Run the authors’ GSEA code on their own S2 and compare to S1
+This follows their script line for line, reading their DESeq2 output instead of ours: protein-coding only, ranked by log2FoldChange, their gene set file, eps = 0, minSize = 15, maxSize = 500, and our agreed seed 6430.
+
+To compare against S1, I had to match their pathway names to the gene set file. S1’s names have typos and inconsistencies (“Angiogensis,” “Bild Acid,” “Inflammatory Reponse,” “TNF_alpha Signaling via NK_B”). One needs a judgment call: S1 lists “mTORC2 signaling,” but Hallmark has no mTORC2 pathway, only MTORC1. I’ve mapped it to MTORC1 as the only possible match. That’s an assumption, and the comparison below will show whether the numbers agree.
+
+library(readxl)
+
+s2file <- file.path(inputs, "supplemental table 2.xlsx")
+sheets <- c(PH_14d = "PH14dOVXvsPHintact", PH_4m = "PH4mOVXvsPHintact",
+            POA_14d = "POA14dOVXvsPOAintact", POA_4m = "POA4mOVXvsPOAintact")
+
+gsea_s2 <- lapply(names(sheets), function(n) {
+  d <- as.data.frame(read_excel(s2file, sheet = sheets[[n]]))
+  d <- d[d$gene_type %in% "protein_coding", ]
+  d <- d[order(d$log2FoldChange, decreasing = TRUE), ]
+  d <- d[!is.na(d$log2FoldChange), ]
+  ranks <- setNames(d$log2FoldChange, d$gene_name)
+  set.seed(6430)
+  fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+})
+names(gsea_s2) <- names(sheets)
+
+s1 <- as.data.frame(read_excel(file.path(inputs, "supplemental table 1.xlsx")))
+s1_to_hallmark <- c(
+  "Adipogenesis" = "ADIPOGENESIS", "Allograft Rejection" = "ALLOGRAFT_REJECTION",
+  "Androgen Response" = "ANDROGEN_RESPONSE", "Angiogensis" = "ANGIOGENESIS",
+  "Apical Junction" = "APICAL_JUNCTION", "Apical Surface" = "APICAL_SURFACE",
+  "Apoptosis" = "APOPTOSIS", "Bild Acid Metabolism" = "BILE_ACID_METABOLISM",
+  "Cholesterol Homeostasis" = "CHOLESTEROL_HOMEOSTASIS", "Coagulation" = "COAGULATION",
+  "Complement" = "COMPLEMENT", "DNA Repair" = "DNA_REPAIR", "E2F Targets" = "E2F_TARGETS",
+  "Epithelial Mesenchymal Transition" = "EPITHELIAL_MESENCHYMAL_TRANSITION",
+  "Estrogen Response - Early" = "ESTROGEN_RESPONSE_EARLY", "Estrogen Response - Late" = "ESTROGEN_RESPONSE_LATE",
+  "Fatty Acid Metabolism" = "FATTY_ACID_METABOLISM", "G2/M Checkpoint" = "G2M_CHECKPOINT",
+  "Glycolysis" = "GLYCOLYSIS", "Hedgehog Signaling" = "HEDGEHOG_SIGNALING",
+  "Heme Metabolism" = "HEME_METABOLISM", "Hypoxia" = "HYPOXIA",
+  "IL2 STAT5 Signaling" = "IL2_STAT5_SIGNALING", "IL6 JAK STAT3 Signaling" = "IL6_JAK_STAT3_SIGNALING",
+  "Inflammatory Reponse" = "INFLAMMATORY_RESPONSE", "Interferon Alpha Response" = "INTERFERON_ALPHA_RESPONSE",
+  "Interferon Gamma Response" = "INTERFERON_GAMMA_RESPONSE", "KRAS Signaling - Down" = "KRAS_SIGNALING_DN",
+  "KRAS Signaling - Up" = "KRAS_SIGNALING_UP", "MYC Targets v1" =
+
+The pathway-name check stopped the run. That’s what it’s there for: at least one name in my mapping doesn’t exactly match a name in the authors’ gene set file. Nothing has been compared yet.
+
+Run this to see which names don’t match, and what the file actually calls its pathways:
+setdiff(unique(s1$hallmark), names(pathways))
+names(pathways)
+
+Only one mismatch, and it’s a spelling quirk in the gene set file itself: MSigDB spells it REACTIVE_OXIGEN_SPECIES_PATHWAY (with an “I”), a long-standing typo in MSigDB’s official name. My mapping used the correct spelling, so it didn’t match.
+
+The fix is one line. Run this short block in the scratch editor (select all, then Run). The mapping you already ran stays in memory, so this only corrects that entry and continues from there:
+s1_to_hallmark["Reactive Oxygen Species"] <- "REACTIVE_OXIGEN_SPECIES_PATHWAY"
+s1$hallmark <- paste0("HALLMARK_", s1_to_hallmark[s1$Pathway])
+stopifnot(!any(is.na(s1_to_hallmark[s1$Pathway])), all(s1$hallmark %in% names(pathways)))
+
+s1_comp <- c(PH_14d = "PH 14d vs intact", PH_4m = "PH 4m vs intact",
+             POA_14d = "POA 14d vs  intact", POA_4m = "POA 4m vs intact")
+
+compare_to_s1 <- function(lst) {
+  t(sapply(names(s1_comp), function(n) {
+    a <- s1[s1$Comparison == s1_comp[[n]], ]
+    b <- lst[[n]][match(a$hallmark, lst[[n]]$pathway), ]
+    c(sig = sum(b$padj < 0.05), NES_cor_with_S1 = round(cor(a$`Normalized Enrichment Score`, b$NES), 3))
+  }))
+}
+
+data.frame(
+  S1_sig             = sapply(names(s1_comp), function(n) sum(s1$adjusted_pvalue[s1$Comparison == s1_comp[[n]]] < 0.05)),
+  authors_code_on_S2 = compare_to_s1(gsea_s2),
+  ours_log2FC        = compare_to_s1(gsea_list),
+  ours_stat          = compare_to_s1(gsea_stat)
+)
+
+
+That’s the decisive result.
+
+Comparison	S1 significant (published)	Authors’ code on their S2: significant / NES correlation with S1	Ours, stat ranking: significant / correlation
+PH 14d			4				0 / 0.52									13 / 0.75
+PH 4m			25				0 / 0.75									31 / 0.94
+POA 14d			10				0 / 0.50									10 / 0.87
+POA 4m			16				0 / 0.72									20 / 0.89
+
+The authors’ published GSEA code, run on their own published DESeq2 results, does not reproduce their published GSEA results. It finds no significant pathways, and its NES values agree only loosely with S1 (correlation 0.50–0.75). The random seed can’t explain this: seeds slightly shift p-values but barely move NES.
+
+So the gap was never about our samples or our data. Their published script, ranking by raw log2FoldChange, isn’t what produced S1 and Fig. 1D.
+
+Meanwhile, our stat-ranked results match S1 best (correlation 0.75–0.94, with similar significant counts). That points to their figure having been made with a different ranking, most plausibly one that accounts for uncertainty, like stat.
+
+One quick test would settle it (about 5 min): run their S2 through the same code but ranked by stat. If that matches S1 almost exactly (correlation near 1.0, similar counts), we’d know with high confidence how S1 was actually made.
+It’s identical to the run you just did on their S2, except that it ranks by stat instead of log2FoldChange. Paste it into the script editor tab, select all, and Run:
+
+gsea_s2_stat <- lapply(names(sheets), function(n) {
+  d <- as.data.frame(read_excel(s2file, sheet = sheets[[n]]))
+  d <- d[d$gene_type %in% "protein_coding", ]
+  d <- d[!is.na(d$stat), ]
+  d <- d[order(d$stat, decreasing = TRUE), ]
+  ranks <- setNames(d$stat, d$gene_name)
+  set.seed(6430)
+  fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+})
+names(gsea_s2_stat) <- names(sheets)
+
+data.frame(
+  S1_sig            = sapply(names(s1_comp), function(n) sum(s1$adjusted_pvalue[s1$Comparison == s1_comp[[n]]] < 0.05)),
+  S2_log2FC_authors = compare_to_s1(gsea_s2),
+  S2_stat           = compare_to_s1(gsea_s2_stat)
+)
+
+This is very close to S1. Ranking their own S2 by stat nearly reproduces their published GSEA results, in three of the four comparisons:
+Comparison	S1 significant	S2 by log2FC (their code): sig / NES correlation	S2 by stat: sig / correlation
+PH 14d			4		0 / 0.52						6 / 0.15 ⚠️
+PH 4m			25		0 / 0.75						27 / 0.97
+POA 14d			10		0 / 0.50						11 / 0.90
+POA 4m			16		0 / 0.72						14 / 0.93
+
+What this shows:
+For PH 4m, POA 14d, and POA 4m: the significant counts are within 1–2 of S1, and NES correlations are 0.90–0.97. S1 was almost certainly produced with an uncertainty-aware ranking very close to stat, not the raw log2FoldChange in their published script. It isn’t a perfect 1.0, so the exact metric may differ slightly (for example, a signed −log10 p-value ranks genes very similarly to stat), but it’s clearly that family.
+PH 14d is the exception: a correlation of only 0.15, even though the significant counts are close (6 vs. 4). Something about that one comparison in S1 doesn’t line up. One possibility is that S1’s PH 14d values came from a different comparison, such as a mislabeled sheet.
+
+A quick check for PH 14d (about 3 min): correlate S1’s PH 14d NES values against all six S2 comparisons ranked by stat, including the 4m-vs-14d ones. If one of the others matches near 0.9, it’s a labeling mix-up in S1. If none does, PH 14d was made some other way.
+it compares every S1 comparison against every S2 comparison (all 6 each way, including the 4m-vs-14d ones). That way any mix-up shows up, not just one involving PH 14d.
+
+sheets6 <- c(sheets, PH_4m_vs_14d = "PH4mOVXvsPH14dOVX", POA_4m_vs_14d = "POA4mOVXvsPOA14dOVX")
+
+extra <- lapply(c("PH_4m_vs_14d", "POA_4m_vs_14d"), function(n) {
+  d <- as.data.frame(read_excel(s2file, sheet = sheets6[[n]]))
+  d <- d[d$gene_type %in% "protein_coding", ]
+  d <- d[!is.na(d$stat), ]
+  d <- d[order(d$stat, decreasing = TRUE), ]
+  ranks <- setNames(d$stat, d$gene_name)
+  set.seed(6430)
+  fgsea(pathways = pathways, stats = ranks, eps = 0.0, minSize = 15, maxSize = 500)
+})
+names(extra) <- c("PH_4m_vs_14d", "POA_4m_vs_14d")
+s2_stat6 <- c(gsea_s2_stat, extra)
+
+s1_comp6 <- c(s1_comp, PH_4m_vs_14d = "PH 4m vs 14d", POA_4m_vs_14d = "POA 4m vs 14d")
+
+cor_matrix <- sapply(names(s2_stat6), function(s2n) {
+  sapply(names(s1_comp6), function(s1n) {
+    a <- s1[s1$Comparison == s1_comp6[[s1n]], ]
+    b <- s2_stat6[[s2n]][match(a$hallmark, s2_stat6[[s2n]]$pathway), ]
+    round(cor(a$`Normalized Enrichment Score`, b$NES), 2)
+  })
+})
+cor_matrix
+
+The table is clear for five of six comparisons, and confirms that PH 14d is the odd one out.
+Rows that match their own comparison (highest value on the diagonal):
+S1 comparison	Best-matching S2 comparison				Correlation
+PH 4m			PH 4m ✅						0.96
+POA 14d			POA 14d ✅						0.90
+POA 4m			POA 4m ✅						0.93
+POA 4m vs 14d		POA 4m vs 14d ✅					0.83
+PH 4m vs 14d		PH 4m (0.84), with its own a close second (0.78)	≈
+
+PH 14d matches nothing well. Its own column gives only 0.15, and the best anywhere is 0.61 (PH 4m). So it’s not a simple label swap between comparisons. S1’s PH 14d values appear to have been produced from a different input or run than the S2 table that was published, and the supplement gives no way to tell which.
+
+Where the GSEA question stands:
+The published script (raw log2FC ranking) doesn’t reproduce S1, even on the authors’ own S2.
+Ranking S2 by stat reproduces S1 closely for 4 of the 6 comparisons (0.83–0.96).
+S1’s PH 14d can’t be traced to any published DESeq2 result under either ranking.
+
+
+Step 3: our DE results vs. S2, gene by gene
+This matches genes between our 4 DE tables and their S2 by Ensembl ID. Ours carry version numbers (ENSMUSG00000115958.2) and theirs don’t, so the code drops the version suffix to match them. For each comparison it reports:
+
+Column			What it measures
+shared_genes		Genes present in both tables
+stat_cor		Correlation of DESeq2’s stat between ours and theirs (1.0 = identical)
+lfc_spearman		Rank correlation of log2FoldChange. Rank-based, so the extreme noise genes can’t dominate it, and no read-count cutoff is needed
+ours_DEG / theirs_DEG	Protein-coding DEGs: ours at padj < 0.05, theirs as the paper counts them (significant = yes), each using its own gene types
+DEG_overlap		Genes that are DEGs in both
+pc_type_disagree	Shared genes labeled protein-coding by one annotation (our GENCODE vM30 or their biomaRt) but not the other
+
+Keep in mind that our results come from 30 samples and theirs from the 33 GEO samples, so they shouldn’t match exactly. This measures how far apart they are.
+strip_ver <- function(x) sub("\\.\\d+$", "", x)
+
+de_compare <- t(sapply(names(sheets), function(n) {
+  ours <- read.delim(file.path(outdir, paste0("DE_", n, "_vs_intact.tsv")))
+  ours$ens <- strip_ver(ours$gene_id)
+  theirs <- as.data.frame(read_excel(s2file, sheet = sheets[[n]]))
+  m <- merge(ours, theirs, by.x = "ens", by.y = "ensembl", suffixes = c(".ours", ".theirs"))
+  ours_deg   <- m$padj.ours < 0.05 & m$gene_type.ours == "protein_coding"
+  theirs_deg <- m$significant == "yes" & m$gene_type.theirs %in% "protein_coding"
+  c(ours_genes       = nrow(ours),
+    theirs_genes     = nrow(theirs),
+    shared_genes     = nrow(m),
+    stat_cor         = round(cor(m$stat.ours, m$stat.theirs, use = "complete.obs"), 3),
+    lfc_spearman     = round(cor(m$log2FoldChange.ours, m$log2FoldChange.theirs,
+                                 method = "spearman", use = "complete.obs"), 3),
+    ours_DEG         = sum(ours_deg, na.rm = TRUE),
+    theirs_DEG       = sum(theirs_deg, na.rm = TRUE),
+    DEG_overlap      = sum(ours_deg & theirs_deg, na.rm = TRUE),
+    pc_type_disagree = sum(xor(m$gene_type.ours == "protein_coding",
+                               m$gene_type.theirs %in% "protein_coding"), na.rm = TRUE))
+}))
+de_compare
+
+This lines up with the sample differences almost perfectly.
+
+Comparison	Agreement with S2 (stat correlation)	DEG overlap (ours / theirs / both)	Groups where our samples differ from theirs
+PH 14d		0.67 (lowest)				19 / 13 / 2				Both: PH intact (3 vs 4) and PH 14d (5 vs 6)
+PH 4m		0.83					56 / 82 / 34				One: PH intact
+POA 14d		0.87					30 / 14 / 9				One: POA intact (4 vs 5)
+POA 4m		0.88					55 / 70 / 34				One: POA intact
+
+What this shows:
+Agreement is lowest exactly where our sample set differs most. PH 14d is the only comparison where both groups are missing a sample relative to theirs, and it agrees least, sharing only 2 DEGs. The comparisons with one changed group agree much better (0.83–0.88).
+Annotation isn’t the problem. Only 128 of 42,119 shared genes (0.3%) are protein-coding in one annotation but not the other. So the GENCODE vs. biomaRt difference barely matters for the DEG counts.
+The gene lists nearly coincide: 42,119 genes shared. Theirs has 658 more, consistent with 3 extra samples letting more genes pass the low-count filter.
+
+This makes a strong case for step 1. If the remaining differences come mostly from the sample set, then rerunning with the same 33 GEO samples they used should push these correlations close to 1.0. Whatever gap remains afterward would come from SV1 (which we’ll have to recompute), software versions, or their unstated DEG filter.
+
+step 1, the 33-sample run
+Before writing any code, one thing to check: how the authors computed SV1 isn’t in the mouse script. Their mouse DESeq2 script only reads the precomputed values from sampleTable_SVs.txt. The paper says just “smartSVA (v0.1.3), SV1 as a covariate.” But smartSVA needs several choices: which expression matrix it runs on, which model, and how many surrogate variables to estimate. The paper also says they applied SVA to the human data, so the Human folder in their repo may contain the actual SVA code. Following our rule, we check their code first.
+
+Step 1a: Look at the authors’ Human DESeq2 folder
+Go to https://github.com/jcbloom/hypo_menopauseNavarro/tree/main/Differential%20Gene%20Expression%20Analysis/Human
+
+Step 1b: Install SmartSVA (meanwhile)
+This is the package the paper names. On CRAN it’s spelled with capitals, SmartSVA, and its latest version is the 0.1.3 the paper used:
+
+r
+install.packages("SmartSVA")
+packageVersion("SmartSVA")
+
+It will also install a few helper packages. The version should print 0.1.3. If any downloads fail with the connection error, rerun the line.
+
+Look at DEanalysis_human.Rmd file
+Their human script does contain the SVA code (lines 123–163). That’s the best guide we have for how the mouse SV1 was made, because the mouse version isn’t shared.
+
+Step			What their code does
+Input			The raw count matrix, keeping genes with total count > 1 (the same prefilter as their DESeq2)
+Normalization		Computes DESeq2 size factors and a scaled matrix, but then never uses it: the next line takes log2(counts + 1) of the raw counts
+Models			mod1 = ~ AGE (the variable of interest), mod0 = ~ 1
+Number of SVs		EstDimRMT() on residuals from mod1, plus 1
+SVA call		smartsva.cpp(log2 matrix, mod = mod1, mod0 = mod0, B = 1000, alpha = 1, n.sv = n.sv)
+Model quirk		Before the call, they wrap the models again (model.matrix(~ mod1)), which duplicates the intercept column
+Use			Only SV1 goes into DESeq2 (~ SV1 + Groups)
+Documentation gap	They write the SVs to GTExhypoSVs.txt but read them back from GTExhypo_SVs.txt, a different name. So the file used was produced or renamed outside this code
+
+SmartSVA 0.1.3 is installed, the exact version the paper names. But one line needs attention: dependencies 'sva', 'qvalue' are not available. Those two are Bioconductor packages, which install.packages() can’t find. SmartSVA needs them to load, and the authors’ human script also loads sva directly. Install them the Bioconductor way, which gives the 3.15 versions:
+BiocManager::install(c("sva", "qvalue"), update = FALSE)
+library(SmartSVA)
+packageVersion("sva"); packageVersion("qvalue")
+
+
+Decisions for the mouse version.
+Variable of interest: mod1 = ~ condition. It plays the same role as AGE in their human code: the biology SVA must not remove. And condition is what their mouse DESeq2 design uses.
+Normalization: follow the code as written (log2 of raw counts). We’re reproducing what they actually ran, not what they may have meant. We’ll note the unused scaled matrix in the report.
+Duplicated intercept: copy it exactly, for the same reason, and note it.
+Seed: yes, set.seed(6430). It doesn’t change the method, and it lets the three of you get identical SV1 values. Same reasoning as for fgsea; we’ll document it as an addition.
+
+Taken together: follow their code exactly wherever it exists, fill gaps with the closest analog from their own work, document every departure, and add only what makes results comparable across the group.
+
+Part A: sample table, tximport, and SV1
+library(tximport); library(DESeq2); library(SmartSVA)
+
+# --- 33 GEO samples, conditions from GEO titles ---
+map <- read.delim(file.path(inputs, "sample_mapping_GSE288245.tsv"), colClasses = "character")
+geo <- map[map$status %in% c("in_GEO_and_analysis", "GEO_only"), ]
+stopifnot(nrow(geo) == 33)
+
+region <- sub("_.*", "", geo$GEO_title)
+tp     <- sapply(strsplit(geo$GEO_title, "_"), `[`, 2)
+tp[tp == "sham"] <- "intact"
+cd33 <- data.frame(SRR = geo$SRR, library = geo$library_name,
+                   condition = paste0(region, "_", tp), GEO_batch = geo$GEO_batch)
+rownames(cd33) <- cd33$SRR
+
+shared_rows <- geo$status == "in_GEO_and_analysis"
+stopifnot(all(cd33$condition[shared_rows] == geo$authors_group[shared_rows]))
+
+cd33$condition <- factor(cd33$condition,
+  levels = c("PH_intact", "PH_14dOVX", "PH_4mOVX", "POA_intact", "POA_14dOVX", "POA_4mOVX"))
+print(table(cd33$condition))   # expect 4, 6, 6, 5, 6, 6 (matches S3)
+
+# --- tximport, same settings as before ---
+if (!exists("tx2gene")) {
+  gtf <- rtracklayer::import(file.path(inputs, "gencode.vM30.annotation.gtf.gz"))
+  tx <- gtf[gtf$type == "transcript"]
+  tx2gene <- data.frame(TXNAME = tx$transcript_id, GENEID = tx$gene_id)
+  g <- gtf[gtf$type == "gene"]
+  geneinfo <- data.frame(gene_id = g$gene_id, gene_name = g$gene_name, gene_type = g$gene_type)
+  rm(gtf, tx, g)
+}
+files33 <- file.path(phase3, "ExplorerAbundanceFiles", cd33$SRR, "abundance.h5")
+names(files33) <- cd33$SRR
+stopifnot(all(file.exists(files33)))
+txi33 <- tximport(files33, type = "kallisto", tx2gene = tx2gene, ignoreAfterBar = TRUE)
+
+dds33 <- DESeqDataSetFromTximport(txi33, cd33, ~ condition)
+dds33 <- dds33[rowSums(counts(dds33)) > 1, ]
+print(nrow(dds33))
+
+# --- SVA, following the authors' human code ---
+Y    <- as.matrix(log2(counts(dds33) + 1))          # log2 of raw counts, as in their code
+mod1 <- model.matrix(~ condition, data = cd33)       # condition in place of AGE
+mod0 <- model.matrix(~ 1, data = cd33)
+Y.r  <- t(resid(lm(t(Y) ~ mod1, data = cd33)))
+n.sv <- EstDimRMT(Y.r, FALSE)$dim + 1
+mod1 <- model.matrix(~ mod1, cd33)                   # their re-wrapping, copied exactly
+mod0 <- model.matrix(~ mod0, cd33)
+cat("Generating", n.sv, "SVs\n")
+set.seed(6430)
+sv.obj <- smartsva.cpp(Y, mod = mod1, mod0 = mod0, B = 1000, alpha = 1, n.sv = n.sv)
+cd33$SV1 <- sv.obj$sv[, 1]
+
+# --- Sanity checks ---
+print(tapply(cd33$SV1, sub("_.*", "", as.character(cd33$condition)), range))
+sv_gh <- read.delim(file.path(inputs, "sampleTable_SVs.txt"), row.names = 1)
+both  <- cd33$library %in% rownames(sv_gh)
+cat("Correlation with authors' GitHub SV1 (30 shared samples):",
+    round(cor(cd33$SV1[both], sv_gh[cd33$library[both], "SV1"]), 3), "\n")
+
+Part A worked, and the SV1 check is strong:
+
+Check							Result
+Group sizes						4 / 6 / 6 / 5 / 6 / 6, matching S3 exactly
+Conditions from GEO titles vs. the authors’ labels	Matched for all 30 shared samples
+Genes after prefilter					42,561, vs. S2’s 42,824 (263 fewer, 0.6%)
+SVs estimated						19 (only SV1 is used, as they did)
+Correlation with their GitHub SV1			−0.91
+
+The −0.91 is the key number. SVA picks the sign of each surrogate variable arbitrarily, so −0.91 means our SV1 is essentially their SV1 flipped. That’s a strong match, given that their values came from a slightly different 33-sample set. The sign also doesn’t affect DESeq2’s results: flipping SV1 only flips its own coefficient, and the condition comparisons stay the same.
+
+SV1 again mostly separates the regions (PH −0.01 to +0.42, POA −0.29 to +0.07), though not quite perfectly this time; the two ranges overlap slightly near zero.
+
+Part B: DESeq2 with SV1, compared with S2
+
+colData(dds33)$SV1 <- cd33$SV1
+design(dds33) <- ~ SV1 + condition
+dds33 <- DESeq(dds33)
+
+contrasts <- list(
+  PH_14d  = c("condition", "PH_14dOVX",  "PH_intact"),
+  PH_4m   = c("condition", "PH_4mOVX",   "PH_intact"),
+  POA_14d = c("condition", "POA_14dOVX", "POA_intact"),
+  POA_4m  = c("condition", "POA_4mOVX",  "POA_intact")
+)
+res33 <- lapply(contrasts, function(ct) {
+  r <- as.data.frame(results(dds33, contrast = ct, alpha = 0.05))
+  idx <- match(rownames(r), geneinfo$gene_id)
+  r$gene_name <- geneinfo$gene_name[idx]
+  r$gene_type <- geneinfo$gene_type[idx]
+  r
+})
+
+strip_ver <- function(x) sub("\\.\\d+$", "", x)
+de33_compare <- t(sapply(names(sheets), function(n) {
+  ours <- res33[[n]]
+  ours$ens <- strip_ver(rownames(ours))
+  theirs <- as.data.frame(read_excel(s2file, sheet = sheets[[n]]))
+  m <- merge(ours, theirs, by.x = "ens", by.y = "ensembl", suffixes = c(".ours", ".theirs"))
+  ours_deg   <- m$padj.ours < 0.05 & m$gene_type.ours == "protein_coding"
+  theirs_deg <- m$padj.theirs < 0.05 & m$gene_type.theirs %in% "protein_coding"
+  c(ours_pc_DEG      = sum(res33[[n]]$padj < 0.05 & res33[[n]]$gene_type == "protein_coding", na.rm = TRUE),
+    S2_pc_DEG        = sum(theirs$padj < 0.05 & theirs$gene_type %in% "protein_coding", na.rm = TRUE),
+    paper            = c(PH_14d = 13, PH_4m = 82, POA_14d = 14, POA_4m = 70)[[n]],
+    DEG_overlap      = sum(ours_deg & theirs_deg, na.rm = TRUE),
+    stat_cor         = round(cor(m$stat.ours, m$stat.theirs, use = "complete.obs"), 3),
+    lfc_spearman     = round(cor(m$log2FoldChange.ours, m$log2FoldChange.theirs,
+                                 method = "spearman", use = "complete.obs"), 3))
+}))
+de33_compare
+
+using the same 33 samples helped PH, but agreement didn’t climb toward 1.0, and POA got slightly worse.
+Comparison	stat correlation with S2: 30 samples → 33 samples	Protein-coding DEGs, ours / S2 (both padj < 0.05)	Overlap
+PH 14d			0.67 → 0.84						17 / 26						5
+PH 4m			0.83 → 0.83						61 / 101					39
+POA 14d			0.87 → 0.81						44 / 27						14
+POA 4m			0.88 → 0.76						65 / 77						26
+
+What this tells us: the sample set explained a lot of the PH 14d gap, the comparison where both groups had differed. But with identical samples and the same software versions, we’d expect correlations around 0.95 or higher if everything else matched. So something besides the samples still differs. The two main suspects are:
+SV1. Ours correlates −0.91 with their GitHub SV1, which is strong but not identical, and we don’t know which SV1 they actually used for S2. Because SV1 is a covariate in every comparison, even moderate differences in it shift all the results. POA getting worse hints at this, since SV1 differs most between regions.
+Quantification. S2 has 263 more genes than ours. Their kallisto version and settings weren’t reported, and a different index or version would change the counts themselves.
+
+Diagnostic A: our normalized counts vs. their S3 (quantification)
+S3 lists genes by name (e.g., Gnai3), not Ensembl ID, so the code matches on gene name and drops names that appear more than once on either side. It then compares each of the 33 libraries, ours against theirs, on two measures:
+Correlation of log2 counts per library (1.0 = identical pattern)
+Median ratio ours/theirs, for genes averaging more than 10 counts (1.0 = identical scale)
+
+s3raw <- as.data.frame(read_excel(file.path(inputs, "supplemental table 3.xlsx"), col_names = FALSE))
+libs  <- unlist(s3raw[2, -1])
+s3genes <- s3raw[-(1:2), 1]
+s3 <- sapply(s3raw[-(1:2), -1], as.numeric)
+colnames(s3) <- libs
+
+ours_norm <- counts(dds33, normalized = TRUE)
+colnames(ours_norm) <- cd33$library[match(colnames(ours_norm), cd33$SRR)]
+gname <- geneinfo$gene_name[match(rownames(ours_norm), geneinfo$gene_id)]
+
+uniq <- function(x) !is.na(x) & !duplicated(x) & !duplicated(x, fromLast = TRUE)
+common <- intersect(gname[uniq(gname)], s3genes[uniq(s3genes)])
+O  <- ours_norm[uniq(gname), ][match(common, gname[uniq(gname)]), libs]
+TT <- s3[uniq(s3genes), ][match(common, s3genes[uniq(s3genes)]), libs]
+
+cat("Genes compared:", length(common), "\n")
+per_lib_cor <- sapply(libs, function(l) cor(log2(O[, l] + 1), log2(TT[, l] + 1)))
+expressed   <- rowMeans(TT) > 10
+per_lib_ratio <- sapply(libs, function(l) median(O[expressed, l] / TT[expressed, l]))
+round(summary(per_lib_cor), 4)
+round(summary(per_lib_ratio), 3)
+
+Diagnostic A shows something unexpected:
+Measure							Result			What it would be if quantification matched
+Correlation per library (log2 counts, 39,208 genes)	0.969–0.975		about 0.99 or higher
+Median ratio, ours/theirs (expressed genes)		0.24–0.35, median 0.27	about 1.0
+
+Our normalized counts are about one-quarter of theirs, consistently across all 33 libraries. DESeq2’s normalized counts stay on roughly the scale of the raw counts (size factors center around 1), so this suggests their raw counts were about 3–4 times higher than ours, as if they had about 4 times as many reads per sample, or counted them differently.
+
+This is still a lead, not a conclusion. A few things could cause it (more sequencing data than what’s on SRA, different kallisto settings, or a different count type), and the 0.97 correlation could be partly an artifact of the scale difference itself (adding 1 before taking log2 distorts low counts differently at different scales). One quick follow-up separates a uniform scale difference (less worrying) from different count patterns (more worrying):
+
+r <- log2(O[expressed, ] / TT[expressed, ])
+cat("Expressed genes:", sum(expressed), "\n")
+round(quantile(apply(r, 1, median), c(0.05, 0.25, 0.5, 0.75, 0.95)), 2)
+round(summary(sapply(libs, function(l) cor(O[expressed, l], TT[expressed, l], method = "spearman"))), 4)
+round(summary(colSums(TT) / colSums(O)), 2)
+
+
+
+Diagnostic B: the same 33 samples without SV1
+This reads the 4 S2 sheets once and keeps them in memory, then compares S2 with our results with SV1 and without it:
+
+s2_list <- lapply(sheets, function(s) as.data.frame(read_excel(s2file, sheet = s)))
+
+cmp_stat <- function(res) sapply(names(sheets), function(n) {
+  o <- res[[n]]; o$ens <- strip_ver(rownames(o))
+  m <- merge(o, s2_list[[n]], by.x = "ens", by.y = "ensembl", suffixes = c(".o", ".t"))
+  round(cor(m$stat.o, m$stat.t, use = "complete.obs"), 3)
+})
+
+dds33n <- DESeqDataSetFromTximport(txi33, cd33, ~ condition)
+dds33n <- dds33n[rowSums(counts(dds33n)) > 1, ]
+dds33n <- DESeq(dds33n)
+res33n <- lapply(contrasts, function(ct) as.data.frame(results(dds33n, contrast = ct, alpha = 0.05)))
+
+rbind(with_our_SV1 = cmp_stat(res33), without_SV1 = cmp_stat(res33n))
+
+
+Diagnostic B gives a clear, somewhat surprising answer:
+
+Comparison	With our SV1	Without SV1
+PH 14d		0.839		0.888
+PH 4m		0.833		0.868
+POA 14d		0.812		0.881
+POA 4m		0.757		0.852
+
+Leaving out our SV1 brings our results closer to S2 in all four comparisons, by the most in POA. So adding our recomputed SV1 pushes our results away from theirs. That means the SV1 they used for S2 must differ from ours in some meaningful way, even though ours correlates −0.91 with their GitHub SV1. A 0.91 correlation still leaves enough difference to shift every comparison, since SV1 sits in every model. Their exact SV1 for the 33 GEO samples was never published, so we can’t recreate it.
+
+But SV1 isn’t the whole story. Even without SV1, agreement tops out around 0.85–0.89, not near 1.0. That fits Diagnostic A’s finding: our counts are about 4 times lower than theirs, so quantification differs too.
+
+Where the DESeq2 reproduction stands:
+Sample set: resolved. The published analysis used the 33 GEO samples, and so do we now.
+SV1: our recomputation, following their human code, moves us away from S2. Their mouse SV1 can’t be reproduced from what’s published.
+Quantification: our counts are about 4× lower than theirs, cause unknown. The kallisto version and settings were unreported.
+
+
+I need to retract what I said about our counts being about 4× lower. That conclusion was wrong.
+Your output gave it away. All 39,208 genes passed the “mean above 10” filter in S3, but in S2 most genes have tiny baseMeans. So I checked S3 itself and the authors’ mouse script (lines 72–86). S3 isn’t plain normalized counts. It’s:
+DESeq2’s variance-stabilizing transformation (VST, a log2-like scale),
+with SV1’s effect removed (limma::removeBatchEffect),
+converted back with 2^x.
+
+That’s why S3’s smallest value is about 10 and it has no zeros: VST puts a floor under low-count genes. Comparing it to our normalized counts isn’t like for like, so the “0.27 ratio” and the 0.97 correlation say nothing about quantification. The totals in your last line (theirs/ours ≈ 1.0) are consistent with this: high-count genes, which dominate the totals, agree on scale.
+
+So Diagnostic A doesn’t answer the quantification question. The two notes I gave you about the 4× difference should be removed from your log. Here are corrected lines to replace them:
+
+A valid quantification test uses S2’s baseMean, which is the mean of DESeq2 normalized counts for each gene, from their model with the same 33 samples. Ours is directly comparable. And since baseMean doesn’t depend on SV1, this isolates quantification:
+
+o <- res33[["PH_4m"]]; o$ens <- strip_ver(rownames(o))
+m <- merge(o[, c("ens", "baseMean")], s2_list[["PH_4m"]][, c("ensembl", "baseMean")],
+           by.x = "ens", by.y = "ensembl", suffixes = c(".ours", ".theirs"))
+e <- m$baseMean.theirs > 10
+cat("Genes compared:", nrow(m), " | expressed (theirs > 10):", sum(e), "\n")
+cat("Spearman, all genes:", round(cor(m$baseMean.ours, m$baseMean.theirs, method = "spearman"), 4), "\n")
+cat("Pearson log2, expressed:", round(cor(log2(m$baseMean.ours[e]), log2(m$baseMean.theirs[e])), 4), "\n")
+round(quantile(m$baseMean.ours[e] / m$baseMean.theirs[e], c(0.05, 0.25, 0.5, 0.75, 0.95)), 3)
+
+
+That’s a clear answer: our quantification matches theirs almost exactly.
+Measure (42,501 shared genes)				Result
+Rank correlation of baseMean, all genes			0.9993
+Log2 correlation, expressed genes (21,416)		0.9991
+Ratio ours/theirs, middle 50% of expressed genes	0.991–1.005 (median 0.999)
+
+So our counts are essentially identical to theirs, even with their kallisto version and settings unreported. Quantification is reproduced, and the remaining DESeq2 differences come from the model, which means SV1.
+
+Putting today’s findings together:
+Source of difference		Status
+Sample set			Resolved. The published analysis used the 33 GEO samples; their GitHub sample files list a different set
+Quantification			Reproduced. baseMean correlation 0.999
+Annotation (gene types)		Minor. 128 of 42,119 genes (0.3%) differ
+SV1				Not reproducible. Their mouse SVA code wasn’t shared, and their SV1 for the 33 GEO samples wasn’t published. Ours, computed with their human method, correlates −0.91 with their GitHub SV1 yet moves our results away from S2
+DEG counts in the paper		Use an unstated filter beyond padj < 0.05
+GSEA				The published code doesn’t reproduce S1, even on their own S2. A stat ranking does, for 4 of 6 comparisons
+
+Save files.
+d33 <- file.path(phase3, "DESeq2_results_33")
+sc  <- file.path(phase3, "supplement_comparisons")
+wt  <- function(x, f) write.table(x, f, sep = "\t", quote = FALSE, row.names = FALSE)
+
+# ---- 33-sample DESeq2 results ----
+for (n in names(res33)) {
+  r <- res33[[n]]
+  out <- data.frame(gene_id = rownames(r), gene_name = r$gene_name, gene_type = r$gene_type,
+                    r[, c("baseMean", "log2FoldChange", "lfcSE", "stat", "pvalue", "padj")])
+  wt(out[order(out$padj), ], file.path(d33, paste0("DE_", n, "_vs_intact.tsv")))
+}
+wt(data.frame(comparison = rownames(de33_compare), de33_compare), file.path(d33, "DEG_summary.tsv"))
+wt(cd33, file.path(d33, "sample_table_33.tsv"))
+saveRDS(dds33, file.path(d33, "dds33.rds"))
+writeLines(capture.output(sessionInfo()), file.path(d33, "sessionInfo.txt"))
+
+# ---- Comparisons with the authors' supplement ----
+gsea_vs_s1 <- data.frame(
+  S1_sig             = sapply(names(s1_comp), function(n) sum(s1$adjusted_pvalue[s1$Comparison == s1_comp[[n]]] < 0.05)),
+  authors_code_on_S2 = compare_to_s1(gsea_s2),
+  S2_ranked_by_stat  = compare_to_s1(gsea_s2_stat),
+  ours30_log2FC      = compare_to_s1(gsea_list),
+  ours30_stat        = compare_to_s1(gsea_stat))
+wt(data.frame(comparison = rownames(gsea_vs_s1), gsea_vs_s1), file.path(sc, "GSEA_vs_S1.tsv"))
+wt(data.frame(S1_comparison = rownames(cor_matrix), cor_matrix), file.path(sc, "GSEA_S1_vs_S2stat_matrix.tsv"))
+wt(data.frame(comparison = rownames(de_compare), de_compare), file.path(sc, "DE30_vs_S2.tsv"))
+wt(data.frame(comparison = rownames(de33_compare), de33_compare,
+              stat_cor_without_SV1 = cmp_stat(res33n)), file.path(sc, "DE33_vs_S2.tsv"))
+
+o <- res33[["PH_4m"]]; o$ens <- strip_ver(rownames(o))
+m <- merge(o[, c("ens", "baseMean")], s2_list[["PH_4m"]][, c("ensembl", "baseMean")],
+           by.x = "ens", by.y = "ensembl", suffixes = c(".ours", ".theirs"))
+e <- m$baseMean.theirs > 10
+q <- quantile(m$baseMean.ours[e] / m$baseMean.theirs[e], c(0.05, 0.25, 0.5, 0.75, 0.95))
+wt(data.frame(genes_compared = nrow(m), expressed_genes = sum(e),
+              spearman_all = round(cor(m$baseMean.ours, m$baseMean.theirs, method = "spearman"), 4),
+              pearson_log2_expressed = round(cor(log2(m$baseMean.ours[e]), log2(m$baseMean.theirs[e])), 4),
+              ratio_q05 = q[1], ratio_q25 = q[2], ratio_median = q[3], ratio_q75 = q[4], ratio_q95 = q[5]),
+   file.path(sc, "baseMean_vs_S2.tsv"))
+
+list.files(d33); list.files(sc)
+
+
+Gene set enrichment analysis (GSEA), run with fgsea, on the 33-sample DESeq2 results.
+it’s the last analysis step of the proposal’s plan Phase 2, “run fgsea on Hallmark gene sets and compare to Fig. 1D.” Yesterday you did it for the 30-sample run. Today repeats it for the 33-sample run, which is now the main reproduction
+
+The 33-sample GSEA (fgsea) ran cleanly, and all 5 files are saved. Here’s how it compares:
+Comparison	S1 significant (published)	Ours, 33 samples, stat: significant / NES correlation with S1	Ours, 30 samples, stat (yesterday): correlation
+PH 14d			4				5 / 0.30								0.75
+PH 4m			25				27 / 0.92								0.94
+POA 14d			10				5 / 0.61								0.87
+POA 4m			16				17 / 0.79								0.89
+
+The authors’ log2FC ranking again gives 0 significant in all four comparisons, consistent with every other test of it.
+
+What this shows:
+The significant counts with stat ranking now match S1 closely in three comparisons: 5 vs. 4, 27 vs. 25, and 17 vs. 16. POA 14d is the exception (5 vs. 10).
+PH 4m, the paper’s headline comparison, reproduces strongly (0.92).
+But the NES correlations are lower than yesterday’s 30-sample run in three of four comparisons. That fits yesterday’s SV1 finding: the 30-sample run used the authors’ own SV1 values, while the 33-sample run uses our recomputed SV1, which pulls results away from theirs. So the right samples with an approximate SV1 can match S1 less closely than slightly wrong samples with their exact SV1. SV1 matters more than the 3 samples.
+PH 14d stays low (0.30), as expected, since S1’s PH 14d didn’t match any of their own DESeq2 comparisons either.
+
+
+compared the 33-sample stat heatmap with the authors’ S1, pathway by pathway, for the 26 pathways in Fig. 1D. It’s a much better match than the overall correlations suggested:
+Comparison	Significant in S1 (of the 26)	Also significant in ours	Ours only	Same direction (all 26)
+PH 14d			4				3			0			19 / 26
+PH 4m			18				18 (all)		2			25 / 26
+POA 14d			6				4			0			19 / 26
+POA 4m			11				10			2			23 / 26
+
+Every disagreement is a near-miss in the same direction, with nothing contradictory:
+
+Missed by us: PH 14d hypoxia (NES 1.51 theirs vs. 1.25 ours), POA 14d IL2/STAT5 and IL6/JAK/STAT3, and POA 4m complement. All positive in both, just short of significance in ours.
+Extra in ours: PH 4m apoptosis and p53, and POA 4m fatty acid metabolism and mTORC1. Each points the same way as theirs, just over the threshold in ours.
+
+So for the Fig. 1D pathways, the 33-sample run with stat ranking reproduces the published heatmap very closely, especially PH 4m, where all 18 of their significant pathways reproduce. The lower overall correlations came mostly from the other 24 Hallmark pathways that aren’t in the figure. The authors’ own log2FC ranking, as published in their code, still reproduces none of it.
+
+That’s a good headline for the meeting: the paper’s main pathway figure reproduces, but only with a different ranking than the one in their shared code.

@@ -1,0 +1,32 @@
+name: kallisto_48
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - _openmp_mutex=4.5=20_gnu
+  - c-ares=1.34.9=hebe6cf0_0
+  - ca-certificates=2026.10.23=hbd8a1cb_0
+  - hdf5=1.12.1=nompi_h4df4325_104
+  - kallisto=0.48.0=h15996b6_2
+  - keyutils=1.6.3=h7cc23a3_1
+  - krb5=1.21.3=h659f571_0
+  - libcurl=8.8.0=hca28451_1
+  - libedit=3.1.20260512=pl5321h373387f_0
+  - libev=4.33=h280c20c_3
+  - libgcc=16.2.0=ha9f2e26_7
+  - libgcc-ng=16.2.0=h69a702a_7
+  - libgfortran=16.2.0=h69a702a_7
+  - libgfortran-ng=16.2.0=h69a702a_7
+  - libgfortran5=16.2.0=h6b99dfc_7
+  - libgomp=16.2.0=he0feb66_7
+  - libnghttp2=1.58.0=h47da74e_1
+  - libssh2=1.11.0=h0841786_0
+  - libstdcxx=16.2.0=h934c35e_7
+  - libstdcxx-ng=16.2.0=hdf11a46_7
+  - libzlib=1.2.13=h4ab18f5_6
+  - ncurses=6.6=hdb14827_1
+  - openssl=3.6.5=h781a0a9_0
+  - zlib=1.2.13=h4ab18f5_6
+  - zstd=1.5.6=ha6fb4c9_0
+prefix: /home/caldwell.ja/.conda/envs/kallisto_48
