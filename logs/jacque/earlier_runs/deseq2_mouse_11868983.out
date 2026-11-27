@@ -1,0 +1,108 @@
+Sample set: matched | design: ~SV1 + condition | 30 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42165 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact       85                  17                   13
+   PH_4mOVX_vs_intact      166                  57                   82
+ POA_14dOVX_vs_intact       98                  24                   14
+  POA_4mOVX_vs_intact      111                  44                   70
+   PH_4mOVX_vs_14dOVX       61                  23                   NA
+  POA_4mOVX_vs_14dOVX       94                  30                   NA
+Sample set: matched | design: ~condition | 30 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42165 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact        2                   2                   13
+   PH_4mOVX_vs_intact       36                  28                   82
+ POA_14dOVX_vs_intact       13                   7                   14
+  POA_4mOVX_vs_intact       34                  25                   70
+   PH_4mOVX_vs_14dOVX       16                   9                   NA
+  POA_4mOVX_vs_14dOVX       12                  11                   NA
+Sample set: matched | design: ~batch + condition | 30 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42165 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact        2                   2                   13
+   PH_4mOVX_vs_intact       52                  44                   82
+ POA_14dOVX_vs_intact        9                   5                   14
+  POA_4mOVX_vs_intact       50                  42                   70
+   PH_4mOVX_vs_14dOVX       34                  26                   NA
+  POA_4mOVX_vs_14dOVX       20                  18                   NA
+Sample set: allGEO | design: ~SV1 + condition | 33 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42559 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact      102                  22                   13
+   PH_4mOVX_vs_intact      235                  78                   82
+ POA_14dOVX_vs_intact      147                  37                   14
+  POA_4mOVX_vs_intact      155                  57                   70
+   PH_4mOVX_vs_14dOVX      137                  41                   NA
+  POA_4mOVX_vs_14dOVX      124                  31                   NA
+Sample set: allGEO | design: ~condition | 33 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42559 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact        2                   2                   13
+   PH_4mOVX_vs_intact       35                  30                   82
+ POA_14dOVX_vs_intact       11                   7                   14
+  POA_4mOVX_vs_intact       40                  31                   70
+   PH_4mOVX_vs_14dOVX       31                  21                   NA
+  POA_4mOVX_vs_14dOVX        9                   6                   NA
+Sample set: allGEO | design: ~batch + condition | 33 samples
+using counts and average transcript lengths from tximport
+Genes after filter: 42559 
+estimating size factors
+using 'avgTxLength' from assays(dds), correcting for library size
+estimating dispersions
+gene-wise dispersion estimates
+mean-dispersion relationship
+final dispersion estimates
+fitting model and testing
+
+             contrast DEGs_all DEGs_protein_coding paper_protein_coding
+  PH_14dOVX_vs_intact        4                   4                   13
+   PH_4mOVX_vs_intact       52                  47                   82
+ POA_14dOVX_vs_intact       12                   8                   14
+  POA_4mOVX_vs_intact       53                  43                   70
+   PH_4mOVX_vs_14dOVX       62                  47                   NA
+  POA_4mOVX_vs_14dOVX       16                  14                   NA

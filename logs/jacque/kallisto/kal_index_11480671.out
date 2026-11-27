@@ -1,0 +1,11 @@
+kallisto, version 0.48.0
+
+[build] loading fasta file gencode.vM30.transcripts.clean.fa.gz
+[build] k-mer length: 31
+[build] warning: clipped off poly-A tail (longer than 10)
+        from 876 target sequences
+[build] counting k-mers ... done.
+[build] building target de Bruijn graph ...  done 
+[build] creating equivalence classes ...  done
+[build] target de Bruijn graph has 897905 contigs and contains 123081114 k-mers 
+

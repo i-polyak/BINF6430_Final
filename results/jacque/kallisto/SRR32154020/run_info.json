@@ -1,0 +1,13 @@
+{
+	"n_targets": 149419,
+	"n_bootstraps": 100,
+	"n_processed": 46119913,
+	"n_pseudoaligned": 41434939,
+	"n_unique": 16511146,
+	"p_pseudoaligned": 89.8,
+	"p_unique": 35.8,
+	"kallisto_version": "0.48.0",
+	"index_version": 10,
+	"start_time": "Thu Oct 29 17:25:49 2026",
+	"call": "kallisto quant -i /scratch/caldwell.ja/final_project/refs/gencode.vM30.k31.idx -o quant/SRR32154020 -b 100 -t 4 fastq/SRR32154020_1.fastq.gz fastq/SRR32154020_2.fastq.gz"
+}
