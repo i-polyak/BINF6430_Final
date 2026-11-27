@@ -1,0 +1,10 @@
+rscript_r421 check_versions.R
+R version 4.2.1 (2022-06-23) 
+Bioconductor 3.15 
+tximport   1.24.0
+DESeq2     1.36.0
+fgsea      1.22.0
+SmartSVA   0.1.3
+sva        3.44.0
+isva       1.10
+msigdbr    7.5.1

@@ -1,0 +1,90 @@
+Sample set: matched | design: sv1 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact   17         26           4        13          3
+   PH_4mOVX_vs_intact   57        101          33        82         33
+ POA_14dOVX_vs_intact   24         27          12        14          9
+  POA_4mOVX_vs_intact   44         77          19        70         18
+   PH_4mOVX_vs_14dOVX   23         43          13        35         13
+  POA_4mOVX_vs_14dOVX   30         26          10        15          8
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42118        0.660            0.576
+        42118        0.773            0.587
+        42118        0.844            0.468
+        42118        0.807            0.543
+        42118        0.854            0.558
+        42118        0.832            0.592
+Sample set: matched | design: none 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact    2         26           1        13          1
+   PH_4mOVX_vs_intact   28        101          25        82         25
+ POA_14dOVX_vs_intact    7         27           5        14          5
+  POA_4mOVX_vs_intact   25         77          19        70         19
+   PH_4mOVX_vs_14dOVX    9         43           7        35          7
+  POA_4mOVX_vs_14dOVX   11         26           8        15          8
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42118        0.665            0.511
+        42118        0.775            0.550
+        42118        0.828            0.452
+        42118        0.809            0.493
+        42118        0.874            0.598
+        42118        0.949            0.746
+Sample set: matched | design: batch 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact    2         26           1        13          1
+   PH_4mOVX_vs_intact   44        101          31        82         31
+ POA_14dOVX_vs_intact    5         27           3        14          3
+  POA_4mOVX_vs_intact   42         77          26        70         26
+   PH_4mOVX_vs_14dOVX   26         43          19        35         19
+  POA_4mOVX_vs_14dOVX   18         26          11        15         11
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42118        0.673            0.552
+        42118        0.764            0.611
+        42118        0.821            0.469
+        42118        0.801            0.545
+        42118        0.852            0.604
+        42118        0.938            0.732
+Sample set: allGEO | design: sv1 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact   22         26           6        13          6
+   PH_4mOVX_vs_intact   78        101          45        82         44
+ POA_14dOVX_vs_intact   37         27          15        14         13
+  POA_4mOVX_vs_intact   57         77          25        70         25
+   PH_4mOVX_vs_14dOVX   41         43          26        35         26
+  POA_4mOVX_vs_14dOVX   31         26           8        15          7
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42500        0.839            0.806
+        42500        0.855            0.765
+        42500        0.900            0.509
+        42500        0.838            0.601
+        42500        0.965            0.746
+        42500        0.824            0.612
+Sample set: allGEO | design: none 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact    2         26           2        13          2
+   PH_4mOVX_vs_intact   30        101          26        82         26
+ POA_14dOVX_vs_intact    7         27           6        14          6
+  POA_4mOVX_vs_intact   31         77          27        70         27
+   PH_4mOVX_vs_14dOVX   21         43          19        35         19
+  POA_4mOVX_vs_14dOVX    6         26           6        15          6
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42500        0.869            0.854
+        42500        0.859            0.757
+        42500        0.908            0.567
+        42500        0.894            0.651
+        42500        0.981            0.820
+        42500        0.949            0.715
+Sample set: allGEO | design: batch 
+             contrast ours paper_padj shared_padj paper_yes shared_yes
+  PH_14dOVX_vs_intact    4         26           2        13          2
+   PH_4mOVX_vs_intact   47        101          38        82         38
+ POA_14dOVX_vs_intact    8         27           6        14          6
+  POA_4mOVX_vs_intact   43         77          33        70         33
+   PH_4mOVX_vs_14dOVX   47         43          29        35         29
+  POA_4mOVX_vs_14dOVX   14         26          11        15         11
+ genes_shared LFC_spearman LFC_pearson_bm10
+        42500        0.863            0.799
+        42500        0.854            0.755
+        42500        0.891            0.499
+        42500        0.873            0.638
+        42500        0.973            0.770
+        42500        0.939            0.623

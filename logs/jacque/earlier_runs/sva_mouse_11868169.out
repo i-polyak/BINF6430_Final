@@ -1,0 +1,73 @@
+Loading required package: sva
+Loading required package: mgcv
+Loading required package: nlme
+This is mgcv 1.8-40. For overview type 'help("mgcv-package")'.
+Loading required package: genefilter
+Loading required package: BiocParallel
+Loading required package: isva
+Loading required package: RSpectra
+Sample set: matched | variant: aswritten | 30 samples
+Genes used for SVA: 42672 
+Generating 19 SVs
+Error: TridiagEigen: eigen decomposition failed
+Execution halted
+Loading required package: sva
+Loading required package: mgcv
+Loading required package: nlme
+This is mgcv 1.8-40. For overview type 'help("mgcv-package")'.
+Loading required package: genefilter
+Loading required package: BiocParallel
+Loading required package: isva
+Loading required package: RSpectra
+Sample set: matched | variant: standard | 30 samples
+Genes used for SVA: 42672 
+Generating 19 SVs
+
+R-squared of SV1 explained by:
+  batch:     0.003 
+  region:    0.751 
+  condition: 0.811 
+
+SV1 mean by condition:
+ PH_14dOVX   PH_4mOVX  PH_intact POA_14dOVX  POA_4mOVX POA_intact 
+    -0.152     -0.187     -0.163      0.184      0.072      0.207 
+Loading required package: sva
+Loading required package: mgcv
+Loading required package: nlme
+This is mgcv 1.8-40. For overview type 'help("mgcv-package")'.
+Loading required package: genefilter
+Loading required package: BiocParallel
+Loading required package: isva
+Loading required package: RSpectra
+Sample set: allGEO | variant: aswritten | 33 samples
+Genes used for SVA: 43092 
+Generating 19 SVs
+
+R-squared of SV1 explained by:
+  batch:     0.003 
+  region:    0.705 
+  condition: 0.76 
+
+SV1 mean by condition:
+ PH_14dOVX   PH_4mOVX  PH_intact POA_14dOVX  POA_4mOVX POA_intact 
+     0.169      0.152      0.122     -0.182     -0.069     -0.181 
+Loading required package: sva
+Loading required package: mgcv
+Loading required package: nlme
+This is mgcv 1.8-40. For overview type 'help("mgcv-package")'.
+Loading required package: genefilter
+Loading required package: BiocParallel
+Loading required package: isva
+Loading required package: RSpectra
+Sample set: allGEO | variant: standard | 33 samples
+Genes used for SVA: 43092 
+Generating 19 SVs
+
+R-squared of SV1 explained by:
+  batch:     0.003 
+  region:    0.698 
+  condition: 0.754 
+
+SV1 mean by condition:
+ PH_14dOVX   PH_4mOVX  PH_intact POA_14dOVX  POA_4mOVX POA_intact 
+     0.168      0.150      0.122     -0.182     -0.067     -0.180 

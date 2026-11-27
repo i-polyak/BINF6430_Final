@@ -1,0 +1,6 @@
+Error in file(file, "rt") : cannot open the connection
+Calls: read.delim -> read.table -> file
+In addition: Warning message:
+In file(file, "rt") :
+  cannot open file '/scratch/caldwell.ja/final_project/samplekey.txt': No such file or directory
+Execution halted
