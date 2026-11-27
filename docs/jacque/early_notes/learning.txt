@@ -1,0 +1,17 @@
+I have learned that:
+
+1.a. downloading crap to explorer is a pain.
+1.b /bin/bash -n <script file.sh>
+
+2. Claude can tell you how to do something but if you don't understand
+	 he will back up and explain, and
+	he can do things alternative ways if you get things in a different way.
+
+
+3. 'jq'   -- reads .json files (like the ones created by kallisto)
+	can sort by columns/ros, very HANDY
+4. If you are creating a new file, do your filtering/sorting first, and THEN add the header, that way you don't sort the header too.
+5. 'column' lines up files pretty in columns.
+
+
+
